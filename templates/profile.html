@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="ru">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Профиль пользователя</title>
+    <link rel="stylesheet" href="/static/css/main.css">
+    <script src="/static/js/auth.js"></script>
+    <script>
+        // Проверяем авторизацию при загрузке страницы
+        document.addEventListener('DOMContentLoaded', checkAuth);
+    </script>
+</head>
+
+<body>
+    <div class="header">
+        <div class="container">
+            <div class="brand">Система EV</div>
+            <div class="nav">
+                <a href="/user/profile" class="nav-link">Профиль</a>
+                <form action="/user/logout" method="POST" style="display: inline;">
+                    <button type="submit" class="btn btn-danger">Выйти</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="row">
+            <div class="profile-info">
+                <h2>Информация о пользователе</h2>
+                <p><strong>ID:</strong> {{.ID}}</p>
+                <p><strong>Логин:</strong> {{.Login}}</p>
+            </div>
+        </div>
+
+        <div class="row mt-3">
+            <h2>Доступные голосования</h2>
+            {{range .Votings}}
+            <div class="voting mb-3">
+                <div class="voting-title">{{.Title}}</div>
+                <a href="/votings/{{.ID}}" class="btn btn-primary mt-3">Участвовать</a>
+            </div>
+            {{end}}
+        </div>
+    </div>
+</body>
+
+</html>

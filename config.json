@@ -1,0 +1,40 @@
+{
+    "app": {
+        "document_root": "../www",
+        "view_path": "views",
+        "server_header_field": ""
+    },
+    "listeners": [
+        {
+            "address": "0.0.0.0",
+            "port": 8080
+        }
+    ],
+    "db_clients": [
+        {
+            "name": "default",
+            "rdbms": "postgresql",
+            "host": "localhost",
+            "port": 5432,
+            "dbname": "mydb",
+            "user": "myuser",
+            "password": "mypassword",
+            "connection_timeout": 3,
+            "idle_time": 60,
+            "connection_limit": 16
+        }
+    ],
+    "redis_clients": [
+        {
+            "name": "default",
+            "host": "localhost",
+            "port": 6379
+        }
+    ],
+    "log": {
+        "log_path": "./",
+        "logfile_base_name": "",
+        "log_size_limit": 100000000,
+        "log_level": "TRACE"
+    }
+}
