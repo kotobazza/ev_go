@@ -5,8 +5,9 @@ import (
 	"fmt"
 	"sync"
 
+	"ev/internal/logger"
+
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/rs/zerolog/log"
 )
 
 var (
@@ -43,7 +44,7 @@ func GetPGConnection() *pgxpool.Pool {
 
 		pgPool = pool
 	})
-
+	log := logger.GetLogger()
 	log.Info().Msg("Successfully created PostgreSQL connection pool")
 
 	return pgPool
