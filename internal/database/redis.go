@@ -2,9 +2,10 @@ package database
 
 import (
 	"context"
-	"ev/internal/config"
 	"fmt"
 	"sync"
+
+	"ev/internal/logger"
 
 	"github.com/redis/go-redis/v9"
 )
@@ -16,7 +17,7 @@ var (
 
 func GetRedisConnection() *redis.Client {
 	redisOnce.Do(func() {
-		redisConfig := config.GetDefaultRedisConfig()
+		redisConfig := getDefaultRedisConfig()
 		if redisConfig == nil {
 			panic("Default Redis configuration not found")
 		}
@@ -31,6 +32,9 @@ func GetRedisConnection() *redis.Client {
 			panic(fmt.Sprintf("Unable to connect to Redis: %v", err))
 		}
 	})
+
+	log := logger.GetLogger()
+	log.Info().Msg("Successfully created Redis connection pool")
 
 	return redisClient
 }

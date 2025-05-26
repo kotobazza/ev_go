@@ -2,11 +2,11 @@ package database
 
 import (
 	"context"
-	"ev/internal/config"
 	"fmt"
 	"sync"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/rs/zerolog/log"
 )
 
 var (
@@ -16,7 +16,7 @@ var (
 
 func GetPGConnection() *pgxpool.Pool {
 	pgOnce.Do(func() {
-		dbConfig := config.GetDefaultDBConfig()
+		dbConfig := getDefaultDBConfig()
 		if dbConfig == nil {
 			panic("Default database configuration not found")
 		}
@@ -43,6 +43,8 @@ func GetPGConnection() *pgxpool.Pool {
 
 		pgPool = pool
 	})
+
+	log.Info().Msg("Successfully created PostgreSQL connection pool")
 
 	return pgPool
 }
