@@ -2,98 +2,90 @@ package config
 
 import (
 	"encoding/json"
+	"ev/internal/crypto/bigint"
+	"fmt"
 	"os"
-
-	"github.com/redis/go-redis/v9"
+	"path/filepath"
 )
 
-type Config struct {
-	App          AppConfig        `json:"app"`
-	Listeners    []ListenerConfig `json:"listeners"`
-	DBClients    []DBConfig       `json:"db_clients"`
-	RedisClients []RedisConfig    `json:"redis_clients"`
-	Log          LogConfig        `json:"log"`
-}
-
+// AppConfig содержит все основные настройки приложения
 type AppConfig struct {
-	DocumentRoot      string `json:"document_root"`
-	ViewPath          string `json:"view_path"`
-	ServerHeaderField string `json:"server_header_field"`
+	Server struct {
+		Host string `json:"host"`
+		Port int    `json:"port"`
+	} `json:"server"`
+	Database struct {
+		Host     string `json:"host"`
+		Port     int    `json:"port"`
+		Name     string `json:"dbname"`
+		User     string `json:"user"`
+		Password string `json:"password"`
+	} `json:"database"`
+	Redis struct {
+		Host string `json:"host"`
+		Port int    `json:"port"`
+	} `json:"redis"`
+	JWT struct {
+		Secret               string `json:"secret"`
+		Issuer               string `json:"issuer"`
+		TokenValidityMinutes int    `json:"jwtAuthTokenValidityMinutes"`
+	} `json:"jwt"`
 }
 
-type ListenerConfig struct {
-	Address string `json:"address"`
-	Port    int    `json:"port"`
+// VotingCryptoConfig содержит криптографические параметры для одного голосования
+type VotingCryptoConfig struct {
+	VotingID string `json:"voting_id"`
+	RSA      struct {
+		N *bigint.BigInt `json:"n"`
+		E *bigint.BigInt `json:"d"`
+		D *bigint.BigInt `json:"e"`
+	} `json:"rsa"`
+	Paillier struct {
+		N      *bigint.BigInt `json:"n"`
+		Lambda *bigint.BigInt `json:"lambda"`
+	} `json:"paillier"`
+	BlockCiphering struct {
+		Key []byte `json:"key"`
+		IV  []byte `json:"iv"`
+	} `json:"block_ciphering"`
 }
 
-type DBConfig struct {
-	Name              string `json:"name"`
-	RDBMS             string `json:"rdbms"`
-	Host              string `json:"host"`
-	Port              int    `json:"port"`
-	DBName            string `json:"dbname"`
-	User              string `json:"user"`
-	Password          string `json:"password"`
-	ConnectionTimeout int    `json:"connection_timeout"`
-	IdleTime          int    `json:"idle_time"`
-	ConnectionLimit   int    `json:"connection_limit"`
-}
-
-type RedisConfig struct {
-	Name string `json:"name"`
-	Host string `json:"host"`
-	Port int    `json:"port"`
-}
-
-type LogConfig struct {
-	LogPath         string `json:"log_path"`
-	LogfileBaseName string `json:"logfile_base_name"`
-	LogSizeLimit    int    `json:"log_size_limit"`
-	LogLevel        string `json:"log_level"`
-}
-
-var AppConf Config
-
-func LoadConfig(configPath string) error {
-	data, err := os.ReadFile(configPath)
-	if err != nil {
-		return err
-	}
-
-	err = json.Unmarshal(data, &AppConf)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func GetDefaultDBConfig() *DBConfig {
-	for _, db := range AppConf.DBClients {
-		if db.Name == "default" {
-			return &db
-		}
-	}
-	return nil
-}
-
-func GetDefaultRedisConfig() *RedisConfig {
-	for _, redis := range AppConf.RedisClients {
-		if redis.Name == "default" {
-			return &redis
-		}
-	}
-	return nil
-}
+// CryptoConfig теперь хранит мапу конфигураций голосований
+type CryptoConfig map[string]VotingCryptoConfig
 
 var (
-	JwtSecret   = []byte("your_jwt_secret")
-	JwtIssuer   = "your_app_name"
-	RedisClient *redis.Client
+	Config       AppConfig
+	CryptoParams CryptoConfig
 )
 
-func InitRedis() {
-	RedisClient = redis.NewClient(&redis.Options{
-		Addr: "localhost:6379",
-	})
+// LoadConfigs загружает все конфигурационные файлы
+func LoadConfigs(configPath, cryptoPath string) error {
+	if err := loadJSONConfig(configPath, &Config); err != nil {
+		return fmt.Errorf("ошибка загрузки основного конфига: %w", err)
+	}
+
+	if err := loadJSONConfig(cryptoPath, &CryptoParams); err != nil {
+		return fmt.Errorf("ошибка загрузки крипто конфига: %w", err)
+	}
+
+	return nil
+}
+
+// loadJSONConfig загружает JSON файл в указанную структуру
+func loadJSONConfig(path string, config interface{}) error {
+	absPath, err := filepath.Abs(path)
+	if err != nil {
+		return fmt.Errorf("ошибка получения абсолютного пути: %w", err)
+	}
+
+	file, err := os.ReadFile(absPath)
+	if err != nil {
+		return fmt.Errorf("ошибка чтения файла: %w", err)
+	}
+
+	if err := json.Unmarshal(file, config); err != nil {
+		return fmt.Errorf("ошибка парсинга JSON: %w", err)
+	}
+
+	return nil
 }

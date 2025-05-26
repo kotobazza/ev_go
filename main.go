@@ -13,7 +13,7 @@ import (
 
 func main() {
 	// Загружаем конфигурацию
-	if err := config.LoadConfig("config.json"); err != nil {
+	if err := config.LoadConfigs("config.json", "crypto.json"); err != nil {
 		log.Fatalf("Failed to load config: %v", err)
 	}
 
@@ -52,11 +52,11 @@ func main() {
 	mux.HandleFunc("/user/logout", handlers.Logout)
 
 	// Запуск сервера
-	log.Printf("Starting server on %s:%d", config.AppConf.Listeners[0].Address, config.AppConf.Listeners[0].Port)
+	log.Printf("Starting server on %s:%d", config.Config.Server.Host, config.Config.Server.Port)
 	err := http.ListenAndServe(
 		fmt.Sprintf("%s:%d",
-			config.AppConf.Listeners[0].Address,
-			config.AppConf.Listeners[0].Port,
+			config.Config.Server.Host,
+			config.Config.Server.Port,
 		),
 		mux,
 	)
