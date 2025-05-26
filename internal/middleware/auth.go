@@ -3,25 +3,33 @@ package middleware
 import (
 	"ev/internal/utils"
 	"net/http"
-	"strings"
+	"net/url"
+	"time"
 )
 
 func AuthMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		authHeader := r.Header.Get("Authorization")
-		if authHeader == "" || !strings.HasPrefix(authHeader, "Bearer ") {
-			http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		cookie, err := r.Cookie("token")
+		if err != nil {
+			http.Redirect(w, r, "/user/signin?error_msg="+url.QueryEscape("Пожалуйста, войдите в систему"), http.StatusFound)
 			return
 		}
 
-		tokenString := strings.TrimPrefix(authHeader, "Bearer ")
-		token, err := utils.VerifyToken(tokenString)
+		token, err := utils.VerifyToken(cookie.Value)
 		if err != nil || !token.Valid {
-			http.Error(w, "Invalid token", http.StatusUnauthorized)
+			// Удаляем невалидный cookie
+			http.SetCookie(w, &http.Cookie{
+				Name:     "token",
+				Value:    "",
+				Path:     "/",
+				Expires:  time.Now().Add(-24 * time.Hour),
+				HttpOnly: true,
+			})
+			http.Redirect(w, r, "/user/signin?error_msg="+url.QueryEscape("Сессия истекла, пожалуйста, войдите снова"), http.StatusFound)
 			return
 		}
 
-		// Можно передать информацию о пользователе через контекст, если нужно
+		// Передаём управление следующему обработчику
 		next.ServeHTTP(w, r)
 	})
 }

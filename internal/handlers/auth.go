@@ -1,18 +1,15 @@
 package handlers
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
 	"html/template"
-	"io"
-	"log"
 	"net/http"
-	"strings"
+	"net/url"
 	"sync"
 	"time"
 
 	"ev/internal/database"
+	"ev/internal/logger"
 	"ev/internal/models"
 	"ev/internal/utils"
 
@@ -46,6 +43,13 @@ func renderTemplate(w http.ResponseWriter, tmpl string, data interface{}) {
 
 // Отдаёт страницу входа
 func ShowLoginPage(w http.ResponseWriter, r *http.Request) {
+	log := logger.GetLogger()
+
+	log.Info().
+		Str("method", r.Method).
+		Str("remote_addr", r.RemoteAddr).
+		Msg("Получен запрос на вход")
+
 	// Проверяем, есть ли уже валидный токен
 	token := extractAndValidateToken(r)
 	if token != nil {
@@ -75,42 +79,38 @@ func ShowSignupPage(w http.ResponseWriter, r *http.Request) {
 }
 
 func Signup(w http.ResponseWriter, r *http.Request) {
-	// Логируем тело запроса
-	body, err := io.ReadAll(r.Body)
-	if err != nil {
-		log.Printf("Error reading body: %v", err)
-		http.Error(w, "Can't read body", http.StatusBadRequest)
-		return
-	}
-	// Важно: восстанавливаем тело запроса для последующего использования
-	r.Body = io.NopCloser(bytes.NewBuffer(body))
+	log := logger.GetLogger()
 
-	log.Printf("Received request body: %s", string(body))
+	log.Info().
+		Str("method", r.Method).
+		Str("remote_addr", r.RemoteAddr).
+		Msg("Получен запрос на регистрацию")
 
-	var req struct {
-		Login           string `json:"login"`
-		Password        string `json:"password"`
-		PasswordConfirm string `json:"password_confirm"`
-	}
-
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		log.Printf("Error decoding JSON: %v", err)
-		http.Error(w, "Invalid request body", http.StatusBadRequest)
+	// Парсим данные формы
+	if err := r.ParseForm(); err != nil {
+		log.Error().
+			Str("error", err.Error()).
+			Msg("Failed to parse form")
+		http.Redirect(w, r, "/user/signup?error_msg="+url.QueryEscape("Ошибка при обработке формы"), http.StatusFound)
 		return
 	}
 
-	log.Printf("Decoded request: login=%s, password_length=%d, password_confirm_length=%d",
-		req.Login, len(req.Password), len(req.PasswordConfirm))
+	login := r.PostForm.Get("login")
+	password := r.PostForm.Get("password")
+	passwordConfirm := r.PostForm.Get("password_confirm")
 
-	if req.Password != req.PasswordConfirm {
-		http.Error(w, "Passwords do not match", http.StatusBadRequest)
+	if password != passwordConfirm {
+		http.Redirect(w, r, "/user/signup?error_msg="+url.QueryEscape("Пароли не совпадают"), http.StatusFound)
 		return
 	}
 
 	// Хешируем пароль
-	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	if err != nil {
-		http.Error(w, "Failed to hash password", http.StatusInternalServerError)
+		log.Error().
+			Str("error", err.Error()).
+			Msg("Failed to hash password")
+		http.Redirect(w, r, "/user/signup?error_msg="+url.QueryEscape("Ошибка при создании пользователя"), http.StatusFound)
 		return
 	}
 
@@ -120,8 +120,11 @@ func Signup(w http.ResponseWriter, r *http.Request) {
 
 	// Проверяем, не существует ли уже пользователь с таким логином
 	var exists bool
-	err = db.QueryRow(ctx, "SELECT EXISTS(SELECT 1 FROM Users WHERE login = $1)", req.Login).Scan(&exists)
+	err = db.QueryRow(ctx, "SELECT EXISTS(SELECT 1 FROM Users WHERE login = $1)", login).Scan(&exists)
 	if err != nil {
+		log.Error().
+			Str("error", err.Error()).
+			Msg("Database error")
 		http.Error(w, "Database error", http.StatusInternalServerError)
 		return
 	}
@@ -136,10 +139,13 @@ func Signup(w http.ResponseWriter, r *http.Request) {
 		`INSERT INTO Users (login, password_hash) 
 		VALUES ($1, $2) 
 		RETURNING id, login`,
-		req.Login, string(hashedPassword),
+		login, string(hashedPassword),
 	).Scan(&user.ID, &user.Login)
 
 	if err != nil {
+		log.Error().
+			Str("error", err.Error()).
+			Msg("Failed to create user")
 		http.Error(w, "Failed to create user", http.StatusInternalServerError)
 		return
 	}
@@ -147,28 +153,47 @@ func Signup(w http.ResponseWriter, r *http.Request) {
 	// Создаем JWT токен
 	token, err := utils.CreateToken(user.ID)
 	if err != nil {
+		log.Error().
+			Str("error", err.Error()).
+			Msg("Failed to create token")
 		http.Error(w, "Failed to create token", http.StatusInternalServerError)
 		return
 	}
 
-	// Отправляем токен и редирект
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{
-		"token":    token,
-		"redirect": "/user/profile",
+	// Устанавливаем токен в HTTP-only cookie
+	http.SetCookie(w, &http.Cookie{
+		Name:     "token",
+		Value:    token,
+		Path:     "/",
+		HttpOnly: true,
+		Secure:   false, // Только для HTTPS
+		SameSite: http.SameSiteStrictMode,
+		MaxAge:   86400, // 24 часа
 	})
+
+	// Делаем редирект на профиль
+	http.Redirect(w, r, "/user/profile", http.StatusFound)
 }
 
 func Login(w http.ResponseWriter, r *http.Request) {
-	var req struct {
-		Login    string `json:"login"`
-		Password string `json:"password"`
-	}
+	log := logger.GetLogger()
 
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "Invalid request body", http.StatusBadRequest)
+	log.Info().
+		Str("method", r.Method).
+		Str("remote_addr", r.RemoteAddr).
+		Msg("Получен запрос на вход")
+
+	// Парсим данные формы
+	if err := r.ParseForm(); err != nil {
+		log.Error().
+			Str("error", err.Error()).
+			Msg("Failed to parse form")
+		http.Redirect(w, r, "/user/signin?error_msg="+url.QueryEscape("Ошибка при обработке формы"), http.StatusFound)
 		return
 	}
+
+	login := r.PostForm.Get("login")
+	password := r.PostForm.Get("password")
 
 	// Получаем подключение к базе данных
 	db := database.GetPGConnection()
@@ -179,73 +204,58 @@ func Login(w http.ResponseWriter, r *http.Request) {
 	var hashedPassword string
 	err := db.QueryRow(ctx,
 		"SELECT id, login, password_hash FROM Users WHERE login = $1",
-		req.Login,
+		login,
 	).Scan(&user.ID, &user.Login, &hashedPassword)
 
 	if err != nil {
-		log.Printf("Login failed for user %s: %v", req.Login, err)
-		http.Error(w, "Invalid credentials", http.StatusUnauthorized)
+		log.Error().
+			Str("login", login).
+			Str("error", err.Error()).
+			Msg("Login failed for user")
+		http.Redirect(w, r, "/user/signin?error_msg="+url.QueryEscape("Неверный логин или пароль"), http.StatusFound)
 		return
 	}
 
 	// Проверяем пароль
-	err = bcrypt.CompareHashAndPassword([]byte(hashedPassword), []byte(req.Password))
+	err = bcrypt.CompareHashAndPassword([]byte(hashedPassword), []byte(password))
 	if err != nil {
-		log.Printf("Password check failed for user %s: %v", req.Login, err)
-		http.Error(w, "Invalid credentials", http.StatusUnauthorized)
+		log.Error().
+			Str("login", login).
+			Str("error", err.Error()).
+			Msg("Password check failed for user")
+		http.Redirect(w, r, "/user/signin?error_msg="+url.QueryEscape("Неверный логин или пароль"), http.StatusFound)
 		return
 	}
 
 	// Создаем JWT токен
 	token, err := utils.CreateToken(user.ID)
 	if err != nil {
-		log.Printf("Failed to create token for user %s: %v", req.Login, err)
+		log.Error().
+			Str("login", login).
+			Str("error", err.Error()).
+			Msg("Failed to create token for user")
 		http.Error(w, "Failed to create token", http.StatusInternalServerError)
 		return
 	}
 
-	// Отправляем токен и редирект
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{
-		"token":    token,
-		"redirect": "/user/profile",
+	// Устанавливаем токен в HTTP-only cookie
+	http.SetCookie(w, &http.Cookie{
+		Name:     "token",
+		Value:    token,
+		Path:     "/",
+		HttpOnly: true,
+		Secure:   false, // Только для HTTPS
+		SameSite: http.SameSiteStrictMode,
+		MaxAge:   86400, // 24 часа
 	})
+
+	// Делаем редирект на профиль
+	http.Redirect(w, r, "/user/profile", http.StatusFound)
 }
 
-func ShowProfilePage(w http.ResponseWriter, r *http.Request) {
-	// Получаем токен из запроса
-	token := extractAndValidateToken(r)
-	if token == nil {
-		http.Redirect(w, r, "/user/signin?error_msg=Please+login+first", http.StatusFound)
-		return
-	}
-
-	// Получаем ID пользователя из токена
-	claims, ok := token.Claims.(jwt.MapClaims)
-	if !ok {
-		http.Error(w, "Invalid token claims", http.StatusUnauthorized)
-		return
-	}
-
-	userID := int(claims["user_id"].(float64))
-
-	// Получаем данные пользователя из базы
-	db := database.GetPGConnection()
-	ctx := context.Background()
-
-	var user User
-	err := db.QueryRow(ctx,
-		"SELECT id, login FROM Users WHERE id = $1",
-		userID,
-	).Scan(&user.ID, &user.Login)
-
-	if err != nil {
-		http.Error(w, "User not found", http.StatusNotFound)
-		return
-	}
-
-	// Отображаем шаблон с данными пользователя
-	renderTemplate(w, "profile", user)
+type ProfilePageData struct {
+	User    User
+	Votings []models.Voting
 }
 
 func Logout(w http.ResponseWriter, r *http.Request) {
@@ -275,24 +285,15 @@ func Logout(w http.ResponseWriter, r *http.Request) {
 
 // Извлекает и проверяет токен из запроса
 func extractAndValidateToken(r *http.Request) *jwt.Token {
-	// Сначала проверяем заголовок Authorization
-	authHeader := r.Header.Get("Authorization")
-	if authHeader != "" && strings.HasPrefix(authHeader, "Bearer ") {
-		tokenString := strings.TrimPrefix(authHeader, "Bearer ")
-		token, err := utils.VerifyToken(tokenString)
-		if err == nil && token.Valid {
-			return token
-		}
-	}
-
-	// Затем проверяем cookie
 	cookie, err := r.Cookie("token")
-	if err == nil {
-		token, err := utils.VerifyToken(cookie.Value)
-		if err == nil && token.Valid {
-			return token
-		}
+	if err != nil {
+		return nil
 	}
 
-	return nil
+	token, err := utils.VerifyToken(cookie.Value)
+	if err != nil || !token.Valid {
+		return nil
+	}
+
+	return token
 }

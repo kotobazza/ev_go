@@ -10,19 +10,21 @@ import (
 	"ev/internal/database"
 
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/rs/zerolog/log"
 )
 
 func CreateToken(userID int) (string, error) {
+
 	claims := jwt.MapClaims{
-		"user_id": userID,
+		"user_id": float64(userID),
 		"exp":     time.Now().Add(time.Hour * 24).Unix(),
-		"iss":     config.JwtIssuer,
+		"iss":     config.Config.JWT.Issuer,
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	tokenString, err := token.SignedString(config.JwtSecret)
+	tokenString, err := token.SignedString([]byte(config.Config.JWT.Secret))
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("failed to sign token: %v", err)
 	}
 
 	// Сохраняем токен в Redis
@@ -34,6 +36,8 @@ func CreateToken(userID int) (string, error) {
 		return "", fmt.Errorf("failed to save token to Redis: %v", err)
 	}
 
+	log.Info().Msg("Token created and saved into Redis successfully")
+
 	return tokenString, nil
 }
 
@@ -42,10 +46,11 @@ func VerifyToken(tokenString string) (*jwt.Token, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, errors.New("unexpected signing method")
 		}
-		return config.JwtSecret, nil
+		return []byte(config.Config.JWT.Secret), nil
 	})
 
 	if err != nil {
+		log.Error().Msgf("Error parsing token: %v", err)
 		return nil, err
 	}
 
@@ -58,13 +63,17 @@ func VerifyToken(tokenString string) (*jwt.Token, error) {
 
 		storedToken, err := redisClient.Get(ctx, key).Result()
 		if err != nil {
+			log.Error().Msgf("Error getting token from Redis: %v", err)
 			return nil, errors.New("token not found in Redis")
 		}
 
 		if storedToken != tokenString {
+			log.Error().Msg("Token has been invalidated")
 			return nil, errors.New("token has been invalidated")
 		}
 	}
+
+	log.Info().Msg("Token verified successfully")
 
 	return token, nil
 }
