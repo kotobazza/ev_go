@@ -6,59 +6,15 @@
     <meta charset="UTF-8" />
     <title>Регистрация</title>
     <link rel="stylesheet" href="/static/css/main.css">
-    <script src="/static/js/auth.js"></script>
-    <script>
-        function handleSubmit(event) {
-            event.preventDefault();
-
-            const formData = {
-                login: document.getElementById('login').value,
-                password: document.getElementById('password').value,
-                password_confirm: document.getElementById('password_confirm').value
-            };
-
-            // Отладочный вывод
-            console.log('Отправляемые данные:', formData);
-
-            fetch('/user/register/submit', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(formData)
-            })
-                .then(response => {
-                    console.log('Статус ответа:', response.status);
-                    if (!response.ok) {
-                        return response.text().then(text => {
-                            console.log('Текст ошибки:', text);
-                            throw new Error(text);
-                        });
-                    }
-                    return response.json();
-                })
-                .then(data => {
-                    console.log('Успешный ответ:', data);
-                    // Сохраняем токен
-                    localStorage.setItem('token', data.token);
-                    // Добавляем токен в cookie для последующих запросов
-                    document.cookie = `token=${data.token}; path=/; max-age=86400`;
-                    // Перенаправляем на страницу профиля
-                    window.location.href = data.redirect;
-                })
-                .catch(error => {
-                    console.error('Ошибка:', error);
-                    document.getElementById('error-message').textContent = error.message;
-                });
-        }
-    </script>
 </head>
 
 <body>
     <div class="container">
         <h1>Регистрация</h1>
-        <div id="error-message" class="error-message">{{.ErrorMsg}}</div>
-        <form onsubmit="handleSubmit(event)">
+        {{if .ErrorMsg}}
+        <div class="error-message">{{.ErrorMsg}}</div>
+        {{end}}
+        <form action="/user/register/submit" method="POST">
             <div class="form-group">
                 <label for="login">Логин:</label>
                 <input type="text" id="login" name="login" required>

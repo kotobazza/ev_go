@@ -8,7 +8,6 @@
     <script src="/static/js/auth.js"></script>
     <script>
         // Проверяем авторизацию при загрузке страницы
-        document.addEventListener('DOMContentLoaded', checkAuth);
     </script>
 </head>
 
@@ -29,8 +28,8 @@
         <div class="row">
             <div class="profile-info">
                 <h2>Информация о пользователе</h2>
-                <p><strong>ID:</strong> {{.ID}}</p>
-                <p><strong>Логин:</strong> {{.Login}}</p>
+                <p><strong>ID:</strong> {{.User.ID}}</p>
+                <p><strong>Логин:</strong> {{.User.Login}}</p>
             </div>
         </div>
 
@@ -38,7 +37,7 @@
             <h2>Доступные голосования</h2>
             {{range .Votings}}
             <div class="voting mb-3">
-                <div class="voting-title">{{.Title}}</div>
+                <div class="voting-title">{{.Name}}</div>
                 <a href="/votings/{{.ID}}" class="btn btn-primary mt-3">Участвовать</a>
             </div>
             {{end}}
