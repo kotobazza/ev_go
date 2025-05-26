@@ -5,16 +5,22 @@ import (
 	"ev/internal/config"
 	"ev/internal/database"
 	"ev/internal/handlers"
+	"ev/internal/logger"
 	"ev/internal/middleware"
 	"fmt"
-	"log"
 	"net/http"
+	"os"
 )
 
 func main() {
+	// Инициализируем логгер
+	logger.InitLogger()
+	log := logger.GetLogger()
+
 	// Загружаем конфигурацию
 	if err := config.LoadConfigs("config.json", "crypto.json"); err != nil {
-		log.Fatalf("Failed to load config: %v", err)
+		log.Fatal().Err(err).Msg("Failed to load config")
+		os.Exit(1)
 	}
 
 	// Инициализируем подключения к базам данных
@@ -22,16 +28,14 @@ func main() {
 	defer database.ClosePGConnection()
 
 	// Инициализируем Redis
-	_ = database.GetRedisConnection() // Инициализируем соединение с Redis
+	_ = database.GetRedisConnection()
 	defer database.CloseRedisConnection()
 
 	// Проверяем подключения
 	if err := pgPool.Ping(context.Background()); err != nil {
-		log.Fatalf("Failed to ping PostgreSQL: %v", err)
+		log.Fatal().Err(err).Msg("Failed to ping PostgreSQL")
+		os.Exit(1)
 	}
-
-	log.Println("Successfully connected to PostgreSQL")
-	log.Println("Successfully connected to Redis")
 
 	mux := http.NewServeMux()
 
@@ -52,7 +56,11 @@ func main() {
 	mux.HandleFunc("/user/logout", handlers.Logout)
 
 	// Запуск сервера
-	log.Printf("Starting server on %s:%d", config.Config.Server.Host, config.Config.Server.Port)
+	log.Info().
+		Str("host", config.Config.Server.Host).
+		Int("port", config.Config.Server.Port).
+		Msg("Starting server")
+
 	err := http.ListenAndServe(
 		fmt.Sprintf("%s:%d",
 			config.Config.Server.Host,
@@ -61,6 +69,7 @@ func main() {
 		mux,
 	)
 	if err != nil {
-		log.Fatalf("Server failed to start: %v", err)
+		log.Fatal().Err(err).Msg("Server failed to start")
+		os.Exit(1)
 	}
 }
