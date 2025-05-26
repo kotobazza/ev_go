@@ -3,6 +3,7 @@ package config
 import (
 	"encoding/json"
 	"ev/internal/crypto/bigint"
+	"ev/internal/logger"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -15,19 +16,20 @@ type AppConfig struct {
 		Port int    `json:"port"`
 	} `json:"server"`
 	Database struct {
-		Host     string `json:"host"`
-		Port     int    `json:"port"`
-		Name     string `json:"dbname"`
-		User     string `json:"user"`
-		Password string `json:"password"`
+		Host            string `json:"host"`
+		Port            int    `json:"port"`
+		Name            string `json:"dbname"`
+		User            string `json:"user"`
+		Password        string `json:"password"`
+		ConnectionLimit int    `json:"connection_limit"`
 	} `json:"database"`
 	Redis struct {
 		Host string `json:"host"`
 		Port int    `json:"port"`
 	} `json:"redis"`
 	JWT struct {
-		Secret               string `json:"secret"`
-		Issuer               string `json:"issuer"`
+		Secret               string `json:"jwtSecret"`
+		Issuer               string `json:"jwtIssuer"`
 		TokenValidityMinutes int    `json:"jwtAuthTokenValidityMinutes"`
 	} `json:"jwt"`
 }
@@ -64,9 +66,14 @@ func LoadConfigs(configPath, cryptoPath string) error {
 		return fmt.Errorf("ошибка загрузки основного конфига: %w", err)
 	}
 
+	log := logger.GetLogger()
+	log.Info().Msg("Successfully loaded main config")
+
 	if err := loadJSONConfig(cryptoPath, &CryptoParams); err != nil {
 		return fmt.Errorf("ошибка загрузки крипто конфига: %w", err)
 	}
+
+	log.Info().Msg("Successfully loaded crypto config")
 
 	return nil
 }
