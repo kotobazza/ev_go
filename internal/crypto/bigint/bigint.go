@@ -2,12 +2,37 @@ package bigint
 
 import (
 	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"math/big"
 )
 
 type BigInt struct {
 	bn *big.Int
+}
+
+// MarshalJSON реализует интерфейс json.Marshaler
+func (a *BigInt) MarshalJSON() ([]byte, error) {
+	if a == nil || a.bn == nil {
+		return []byte("null"), nil
+	}
+	return json.Marshal(a.ToBase64())
+}
+
+// UnmarshalJSON реализует интерфейс json.Unmarshaler
+func (a *BigInt) UnmarshalJSON(data []byte) error {
+	var s string
+	if err := json.Unmarshal(data, &s); err != nil {
+		return err
+	}
+
+	bi, err := NewBigIntFromBase64(s)
+	if err != nil {
+		return err
+	}
+
+	a.bn = bi.bn
+	return nil
 }
 
 // Конструкторы
