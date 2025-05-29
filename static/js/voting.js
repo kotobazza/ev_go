@@ -391,25 +391,7 @@ window.initializeZKP = function (params) {
         return btoa(String.fromCharCode.apply(null, bytes));
     }
 
-    function base64ToBigInt(base64) {
-        console.log("base64ToBigInt:", base64);
-        // Декодируем base64 в бинарную строку
-        const binaryString = atob(base64);
 
-        // Преобразуем бинарную строку в массив байтов
-        const bytes = new Uint8Array(binaryString.length);
-        for (let i = 0; i < binaryString.length; i++) {
-            bytes[i] = binaryString.charCodeAt(i);
-        }
-
-        // Преобразуем байты в шестнадцатеричную строку
-        const hexString = Array.from(bytes)
-            .map(byte => byte.toString(16).padStart(2, '0'))
-            .join('');
-
-        // Создаем BigInt из шестнадцатеричной строки
-        return BigInt('0x' + hexString);
-    }
 
     async function submitVote() {
         if (!proof) {

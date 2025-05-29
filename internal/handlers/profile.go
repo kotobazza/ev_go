@@ -12,6 +12,11 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 )
 
+type ProfilePageData struct {
+	User    User
+	Votings []models.Voting
+}
+
 func ShowProfilePage(w http.ResponseWriter, r *http.Request) {
 	// Получаем токен из запроса
 	token := extractAndValidateToken(r)

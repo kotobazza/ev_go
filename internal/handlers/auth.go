@@ -9,8 +9,8 @@ import (
 	"time"
 
 	"ev/internal/database"
+	"ev/internal/handlers/render"
 	"ev/internal/logger"
-	"ev/internal/models"
 	"ev/internal/utils"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -18,9 +18,7 @@ import (
 )
 
 var (
-	users         = make(map[string]models.User)
-	userIDCounter = 1
-	mu            sync.Mutex // Для потокобезопасного доступа
+	mu sync.Mutex // Для потокобезопасного доступа
 
 	templates = template.Must(template.ParseGlob("templates/*.html"))
 )
@@ -31,14 +29,6 @@ type User struct {
 	PasswordHash string    `json:"-"` // Не включаем в JSON
 	CreatedAt    time.Time `json:"created_at,omitempty"`
 	UpdatedAt    time.Time `json:"updated_at,omitempty"`
-}
-
-// Вспомогательная функция рендера шаблона
-func renderTemplate(w http.ResponseWriter, tmpl string, data interface{}) {
-	err := templates.ExecuteTemplate(w, tmpl+".html", data)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-	}
 }
 
 // Отдаёт страницу входа
@@ -58,7 +48,7 @@ func ShowLoginPage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	renderTemplate(w, "login", map[string]interface{}{
+	render.RenderTemplate(w, "login", map[string]interface{}{
 		"ErrorMsg": r.URL.Query().Get("error_msg"),
 	})
 }
@@ -73,7 +63,7 @@ func ShowSignupPage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	renderTemplate(w, "signup", map[string]interface{}{
+	render.RenderTemplate(w, "signup", map[string]interface{}{
 		"ErrorMsg": r.URL.Query().Get("error_msg"),
 	})
 }
@@ -251,11 +241,6 @@ func Login(w http.ResponseWriter, r *http.Request) {
 
 	// Делаем редирект на профиль
 	http.Redirect(w, r, "/user/profile", http.StatusFound)
-}
-
-type ProfilePageData struct {
-	User    User
-	Votings []models.Voting
 }
 
 func Logout(w http.ResponseWriter, r *http.Request) {

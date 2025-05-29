@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html>
+
+
+<head>
+    <meta charset="UTF-8">
+    <title>Система EV</title>
+    <script src="https://cdn.jsdelivr.net/npm/paillier-bigint@latest/dist/bundle.iife.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/js-sha256/0.9.0/sha256.min.js"></script>
+    <link rel="stylesheet" href="/static/css/main.css">
+</head>
+
+<body>
+    <div class="header">Система EV</div>
+    <div class="container">
+        <div class="right">
+            <div class="voting-form">
+                <div class="voting-title">{{.Voting.Name}}</div>
+                <div class="voting-question">{{.Voting.Question}}</div>
+
+                <form id="votingForm" action="/voting/subscribe" method="post">
+                    <input type="hidden" name="voting_id" value="{%voting_id%}">
+                    <input type="hidden" name="encrypted_vote" id="encryptedVote">
+                    <input type="hidden" name="proof_e" id="proofE">
+                    <input type="hidden" name="proof_z" id="proofZ">
+                    <input type="hidden" name="proof_a" id="proofA">
+                    {{range .Options}}
+                    <div class="option">
+                        <input type="radio" id="option{{.ID}}" name="vote" value="{{.ID}}">
+                        <label for="option{{.ID}}">{{.Name}}</label>
+                    </div>
+                    {{end}}
+
+                    <button type="button" class="button sendVoteButton">Отправить голос</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div id="confirmationModal" class="modal">
+        <div class="modal-content">
+            <p>Точно отправить голос?</p>
+            <div class="modal-buttons">
+                <button class="modal-button confirm">Да</button>
+                <button class="modal-button cancel">Нет</button>
+            </div>
+        </div>
+    </div>
+    <script src="/static/js/voting.js"></script>
+    <script>
+        function base64ToBigInt(base64) {
+            console.log("base64ToBigInt:", base64);
+            // Декодируем base64 в бинарную строку
+            const binaryString = atob(base64);
+
+            // Преобразуем бинарную строку в массив байтов
+            const bytes = new Uint8Array(binaryString.length);
+            for (let i = 0; i < binaryString.length; i++) {
+                bytes[i] = binaryString.charCodeAt(i);
+            }
+
+            // Преобразуем байты в шестнадцатеричную строку
+            const hexString = Array.from(bytes)
+                .map(byte => byte.toString(16).padStart(2, '0'))
+                .join('');
+
+            // Создаем BigInt из шестнадцатеричной строки
+            return BigInt('0x' + hexString);
+        }
+        const EV_PARAMS = {
+            voting_id: Number('{{.Voting.ID}}'),
+            options_amount: Number('{{len .Voting.Options}}'),
+            publicKey: {
+                n: base64ToBigInt('{{.Crypto.CryptoParametrN}}'),
+                g: base64ToBigInt('{{.Crypto.CryptoParametrG}}') + 1n
+            },
+            rsaSignPublicKey: {
+                n: base64ToBigInt('{{.Crypto.RSAPublicN}}'),
+                e: base64ToBigInt('{{.Crypto.RSAPublicE}}')
+            }
+        };
+        // Вызываем инициализацию после загрузки DOM
+        document.addEventListener('DOMContentLoaded', () => {
+            window.initializeZKP(EV_PARAMS);
+        });
+    </script>
+</body>
+
+</html>
