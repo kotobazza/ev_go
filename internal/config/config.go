@@ -14,6 +14,12 @@ type AppConfig struct {
 	Server struct {
 		Host string `json:"host"`
 		Port int    `json:"port"`
+		TLS  struct {
+			HTTPPort int    `json:"http_port"`
+			Enabled  bool   `json:"enabled"`
+			CertFile string `json:"cert_file"`
+			KeyFile  string `json:"key_file"`
+		} `json:"tls"`
 	} `json:"server"`
 	Database struct {
 		Host            string `json:"host"`

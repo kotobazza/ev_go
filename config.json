@@ -1,7 +1,13 @@
 {
     "server": {
         "host": "0.0.0.0",
-        "port": 8080
+        "port": 8080,
+        "tls": {
+            "http_port": 8081,
+            "enabled": false,
+            "cert_file": "certs/server.crt",
+            "key_file": "certs/server.key"
+        }
     },
     "database": {
         "host": "localhost",
