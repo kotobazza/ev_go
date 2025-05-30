@@ -1,0 +1,152 @@
+@startuml Протокол
+actor Голосующий as Voter
+participant "Identity Provider" as IDP
+participant Регистратор as Registrar
+participant Счетчик as Counter
+
+== Инициализация ==
+Auth -> Auth: Списки голосующих\nи их аутентификационные данные
+Registrar -> Registrar: Параметры криптосистем
+Registrar -> Counter: число a
+Counter -> Counter: Параметры криптосистем
+
+
+== Идентификация и аутентификация ==
+
+Voter -> IDP: Идентификация и аутентификация
+IDP -> Voter: AccessToken + Sign(TemdID) + TempID (TempID выдается на одно голосование)
+
+== Голосование ==
+
+Voter -> Registrar: Как голосовать?
+Registrar -> Voter: Вопрос, варианты, ключи для Pailier и RSA
+Voter -> Voter: Выбирает голос
+Voter -> Voter: Шифрует голос Pailier
+Voter -> Voter: Выбирает случайную M (любую)
+Voter -> Voter: Ослепление (Hash(Зашифрованный голос + M))
+
+Voter -> Registrar: AccessToken + TempID + Sign(TemdID) + Ослепление
+Registrar -> IDP: AccessToken valid?
+alt Valid
+    IDP -> Registrar: Valid
+    Registrar -> Registrar: Sign(TempID) valid?
+    alt Valid
+        Registrar -> Registrar: TempID есть в базе Регистратора?
+        alt Есть (реализуем переголосование)
+            Registrar -> Registar: S = Sign(Oслепление * a)
+        else Нет (первичное голосование)
+            Registrar -> Registrar: Регистратор записывает TempID к себе в базу 
+            Registrar -> Registrar: S = Sign(Ослепление)
+            Registrar -> Voter: S
+
+        end
+    else Invalid
+        Registrar -> Voter: Отказ подписи
+    end
+        
+else Invalid
+    IDP -> Registrar: Invalid
+    Registrar -> Voter: Отказ подписи
+end
+Voter -> Voter: Формирование ZKP формата голоса - голос соответствует одной из возможных форм голосов
+Voter -> Voter: Снятие ослепления
+Voter -> Voter: Сохранение Hash(Зашифрованный голос)
+
+Voter -> Counter: H(Зашифрованный голос + M), S, Зашифрованный голос, ZKP или  H(Зашифрованный голос + M), S, Зашифрованный голос, ZKP + H(Старый зашифрованный голос + Старая M), Старая M
+Counter -> Counter: Ver(H(Зашифрованный голос + M)) || Ver(H(Зашифрованный голос + M)*a)
+alt Ver(H(Зашифрованный голос + M)) is verified
+    alt ZKP корректно?
+        Counter -> Counter: H(Зашифрованный голос) -> Merklie дерево
+        Counter -> Counter: Зашифрованный голос в публичный реестр
+    else
+        Counter -> Voter: Отказ в принятии
+    end
+
+else Ver(H(Зашифрованный голос + M)*a) is verified
+    alt H(Старый зашифрованный голос + Старая M) есть в реестре бюллетеней
+        Counter->Counter: получение зашифрованного голоса по хешу из реестра
+        alt H(Зашифрованный голос из реестра + Старая M) == H(Старый зашифрованный голос + Старая M)
+            alt ZKP корректно?
+                Counter -> Counter: H(Зашифрованный голос) -> Merklie дерево
+                Counter -> Counter: Зашифрованный голос в публичный реестр
+            else
+                Counter -> Voter: Отказ в принятии
+            end
+        else Нет
+            Counter -> Voter: Отказ в принятии
+    else Нет
+        Counter -> Voter: Отказ в принятии
+    end
+
+else Обе not verifed
+    Counter -> Voter: Отказ в принятии
+
+end
+
+
+== Проверка учета голосующим ==
+Voter -> Counter: Слепок бюллетеня
+alt Слепок бюллетеня существует\nв публичном реестре
+    Voter <- Counter: Доказательство включения в публичный реестр
+else Слепка бюллетеня не существует\nв публичном реестре
+    Voter <- Counter: Отказ в получении учета
+end
+
+
+
+== Подсчет голосов==
+Counter -> Counter: Получение всех голосов по реестру бюллетеней
+Counter -> Counter: Суммирование голосов
+Counter -> Counter: Расшифрование\nсуммы голосов\nс использованием закрытого\nключа 
+Counter -> Counter: Публикация результата и\nдоказательства соответствия\nрезультата и зашифрованной суммы
+
+
+== Аудит результатов ==
+Voter -> Counter: Запрос данных публичного реестра
+Counter -> Voter: Зашифрованные голоса,\nдоказательство соответствия\nрезультата зашифрованной\n сумме, доказательство\nпубличного реестра
+alt Имеется доказательство владения бюлетенем
+Voter -> Voter: Проверка наличия\nслепка бюллетеня\nв реестре
+alt Слепок найден
+    Voter -> Voter: Воссоздание публичного реестра\nиз реестра бюллетеней
+    alt Публичные реестры совпадают
+        Voter -> Voter: Самостоятельное суммирование\nголосов в соответствии с\nпубличным реестром
+        Voter -> Voter: Сравнение с зашифрованной суммой
+        alt Сумма совпала с результатом
+            Voter -> Voter: Проверка доказательства соответствия результата и зашифрованной суммы
+            alt Доказательство верное
+                Voter -> Voter: Аудит произведен
+            else Доказательство неверное
+                Voter -> Counter: Выставление протеста
+            end
+        alt Сумма не совпала с результатом
+            Voter -> Counter: Выставление протеста
+        end
+    else Публичные реестры не совпадают
+        Voter -> Counter: Выставление протеста
+    end 
+    
+else Слепок не найден
+    Voter -> Voter: Наблюдатель
+    alt Публичные реестры совпадают
+        Voter -> Voter: Самостоятельное суммирование\nголосов в соответствии с\nпубличным реестром
+        Voter -> Voter: Сравнение с зашифрованной суммой
+        alt Сумма совпала с результатом
+            Voter -> Voter: Проверка доказательства соответствия результата и зашифрованной суммы
+            alt Доказательство верное
+                Voter -> Voter: Аудит произведен
+            else Доказательство неверное
+                Voter -> Counter: Выставление протеста
+            end
+        alt Сумма не совпала с результатом
+            Voter -> Counter: Выставление протеста
+        end
+    else Публичные реестры не совпадают
+        Voter -> Counter: Выставление протеста
+    end
+
+end
+
+== Завершение голосования ==
+
+
+@enduml
