@@ -37,26 +37,25 @@ func pow(base, exp, mod *bigint.BigInt) *bigint.BigInt {
 	return base.ModExp(exp, mod)
 }
 
-func computeDigest(values []*bigint.BigInt) *bigint.BigInt {
-	// Отладочный вывод как в C++ версии
-	fmt.Println("Go hashing values:")
-	for _, val := range values {
-		fmt.Println(val.ToString())
-	}
-
-	// Создаем SHA-256 хеш
+func ComputeDigest(values []*bigint.BigInt) *bigint.BigInt {
 	h := sha256.New()
+
 	for _, val := range values {
-		str := val.ToString()
-		h.Write([]byte(str))
+		data := val.ToBase64() + "|"
+		h.Write([]byte(data))
 	}
-	hash := h.Sum(nil)
 
-	// Отладочный вывод хеша в hex формате
-	fmt.Printf("Go hash hex: %x\n", hash)
+	hashSum := h.Sum(nil)
 
-	// Преобразуем хеш в BigInt
-	result := bigint.NewBigInt().SetBytes(hash)
-	fmt.Println("Go final result:", result.ToString())
+	// Преобразуем байты в десятичное число, дополняя каждое число до 3 цифр
+	var decimalString string
+	for _, b := range hashSum {
+		decimalString += fmt.Sprintf("%03d", b)
+	}
+
+	result, err := bigint.NewBigIntFromString(decimalString)
+	if err != nil {
+		panic(err)
+	}
 	return result
 }

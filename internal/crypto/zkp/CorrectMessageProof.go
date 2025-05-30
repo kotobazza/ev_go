@@ -1,8 +1,11 @@
 package zkp
 
 import (
+	"errors"
 	"ev/internal/crypto/bigint"
-	"fmt"
+	"strconv"
+
+	"github.com/rs/zerolog/log"
 )
 
 // CorrectMessageProof реализует доказательство допустимости зашифрованного сообщения
@@ -32,7 +35,7 @@ func NewCorrectMessageProof(eVec, zVec, aVec []*bigint.BigInt, cipher *bigint.Bi
 }
 
 // Prove создает новое доказательство для заданного сообщения
-func Prove(n *bigint.BigInt, validMessages []*bigint.BigInt, messageToEncrypt *bigint.BigInt) *CorrectMessageProof {
+func Prove(n *bigint.BigInt, validMessages []*bigint.BigInt, messageToEncrypt *bigint.BigInt, b uint) *CorrectMessageProof {
 	nn := n.Mul(n)
 	numOfMessages := len(validMessages)
 
@@ -60,8 +63,7 @@ func Prove(n *bigint.BigInt, validMessages []*bigint.BigInt, messageToEncrypt *b
 	}
 
 	// Генерация случайных e_j и z_j для всех сообщений, кроме истинного
-	B := uint(256) // Параметр безопасности
-	twoToB := two.Lsh(B)
+	twoToB := two.Lsh(b)
 
 	eiVec := make([]*bigint.BigInt, numOfMessages-1)
 	ziVec := make([]*bigint.BigInt, numOfMessages-1)
@@ -101,19 +103,16 @@ func Prove(n *bigint.BigInt, validMessages []*bigint.BigInt, messageToEncrypt *b
 	}
 
 	// Вычисляем challenge (chal)
-	chal := computeDigest(aiVec).Mod(twoToB)
-	fmt.Println("Go chal:", chal.ToString())
+	chal := ComputeDigest(aiVec).Mod(twoToB)
 
 	// Вычисляем e_i для истинного сообщения
 	eiSum := bigint.NewBigIntFromInt(0)
 	for _, ei := range eiVec {
 		eiSum = eiSum.Add(ei).Mod(twoToB)
 	}
-	fmt.Println("Go eiSum:", eiSum.ToString())
 
 	// Вычисляем ei для истинного сообщения: (chal - eiSum + twoToB) % twoToB
 	ei := chal.Sub(eiSum).Add(twoToB).Mod(twoToB)
-	fmt.Println("Go ei for true message:", ei.ToString())
 
 	// Вычисляем z_i для истинного сообщения
 	riEi := r.ModExp(ei, n)
@@ -134,31 +133,26 @@ func Prove(n *bigint.BigInt, validMessages []*bigint.BigInt, messageToEncrypt *b
 		}
 	}
 
-	return NewCorrectMessageProof(eVec, zVec, aiVec, ciphertext, validMessages, n, B)
+	return NewCorrectMessageProof(eVec, zVec, aiVec, ciphertext, validMessages, n, b)
 }
 
 // Verify проверяет доказательство допустимости
-func (proof *CorrectMessageProof) Verify() bool {
+func (proof *CorrectMessageProof) Verify() error {
 	twoToB := bigint.NewBigIntFromInt(1).Lsh(proof.B)
-	fmt.Println("Go twoToB:", twoToB.ToString())
 
 	// Проверка суммы e_i
-	chal := computeDigest(proof.AVals).Mod(twoToB)
-	fmt.Println("Go verification chal:", chal.ToString())
+	hash := ComputeDigest(proof.AVals)
+	chal := hash.Mod(twoToB)
 
 	eiSum := bigint.NewBigIntFromInt(0)
 	for _, e := range proof.EVals {
-		fmt.Println("Go e:", e.ToString())
 		eiSum = eiSum.Add(e).Mod(twoToB)
 	}
-	fmt.Println("Go verification eiSum:", eiSum.ToString())
 
 	if !chal.Eq(eiSum) {
-		fmt.Println("Go: Challenge check failed")
-		return false
+		log.Error().Msgf("chal: %s, eiSum: %s", chal.ToString(), eiSum.ToString())
+		return errors.New("challenge check failed")
 	}
-
-	fmt.Println("Go: Challenge check passed")
 
 	// Вычисление u_i для каждого допустимого сообщения
 	g := proof.n.Add(bigint.NewBigIntFromInt(1))
@@ -166,6 +160,7 @@ func (proof *CorrectMessageProof) Verify() bool {
 	for i, m := range proof.validMessages {
 		gm := g.ModExp(m, proof.nn)
 		gmInv, _ := gm.ModInverse(proof.nn)
+
 		ui := proof.ciphertext.Mul(gmInv).Mod(proof.nn)
 		uiVec[i] = ui
 	}
@@ -176,15 +171,11 @@ func (proof *CorrectMessageProof) Verify() bool {
 		uiEi := uiVec[i].ModExp(proof.EVals[i], proof.nn)
 		rightSide := proof.AVals[i].Mul(uiEi).Mod(proof.nn)
 
-		fmt.Printf("Go equation %d:\n", i)
-		fmt.Println("  ziN:", ziN.ToString())
-		fmt.Println("  rightSide:", rightSide.ToString())
-
 		if !ziN.Eq(rightSide) {
-			fmt.Printf("Go: Equation %d check failed\n", i)
-			return false
+			log.Error().Msg("Equation " + strconv.Itoa(i) + " check failed")
+			return errors.New("equation check failed")
 		}
 	}
 
-	return true
+	return nil
 }

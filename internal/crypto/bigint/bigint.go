@@ -4,6 +4,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"math/big"
 )
 
@@ -28,7 +29,7 @@ func (a *BigInt) UnmarshalJSON(data []byte) error {
 
 	bi, err := NewBigIntFromBase64(s)
 	if err != nil {
-		return err
+		return fmt.Errorf("ошибка преобразования base64 в bigint: %w", err)
 	}
 
 	a.bn = bi.bn
@@ -53,13 +54,27 @@ func NewBigIntFromString(s string) (*BigInt, error) {
 	return &BigInt{bn: bi}, nil
 }
 
+func (a *BigInt) ToBase64() string {
+	if a == nil || a.bn == nil {
+		return ""
+	}
+	// Преобразуем число в строку
+	str := a.bn.Text(10)
+	// Кодируем строку в base64
+	return base64.StdEncoding.EncodeToString([]byte(str))
+}
+
 func NewBigIntFromBase64(b64 string) (*BigInt, error) {
 	data, err := base64.StdEncoding.DecodeString(b64)
 	if err != nil {
 		return nil, err
 	}
-	bi := new(big.Int).SetBytes(data)
-	return &BigInt{bn: bi}, nil
+	// Сначала преобразуем байты в строку
+	bi, err := NewBigIntFromString(string(data))
+	if err != nil {
+		return nil, err
+	}
+	return bi, nil
 }
 
 func NewBigIntFromInt(n int64) *BigInt {
@@ -141,10 +156,6 @@ func (a *BigInt) Pow(exponent *BigInt) *BigInt {
 // Строковое представление
 func (a *BigInt) ToString() string {
 	return a.bn.Text(10)
-}
-
-func (a *BigInt) ToBase64() string {
-	return base64.StdEncoding.EncodeToString(a.bn.Bytes())
 }
 
 // Вспомогательные функции

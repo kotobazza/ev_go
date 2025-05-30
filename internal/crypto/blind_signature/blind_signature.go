@@ -91,6 +91,10 @@ func randomBigInt(min, max *bigint.BigInt) (*bigint.BigInt, error) {
 
 type BlindSignature struct{}
 
+func (bs BlindSignature) SignBlinded(blinded, d, n *bigint.BigInt) *bigint.BigInt {
+	return blinded.ModExp(d, n)
+}
+
 func (bs BlindSignature) Blind(message, e, n *bigint.BigInt) (*bigint.BigInt, *bigint.BigInt, error) {
 	var r *bigint.BigInt
 	var err error
@@ -107,10 +111,6 @@ func (bs BlindSignature) Blind(message, e, n *bigint.BigInt) (*bigint.BigInt, *b
 	rPowE := r.ModExp(e, n)
 	blinded := message.Mul(rPowE).Mod(n)
 	return blinded, r, nil
-}
-
-func (bs BlindSignature) SignBlinded(blinded, d, n *bigint.BigInt) *bigint.BigInt {
-	return blinded.ModExp(d, n)
 }
 
 func (bs BlindSignature) Unblind(blindedSig, r, n *bigint.BigInt) *bigint.BigInt {
