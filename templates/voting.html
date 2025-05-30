@@ -46,42 +46,33 @@
             </div>
         </div>
     </div>
-    <script src="/static/js/voting.js"></script>
-    <script>
-        function base64ToBigInt(base64) {
-            console.log("base64ToBigInt:", base64);
-            // Декодируем base64 в бинарную строку
-            const binaryString = atob(base64);
+    <script type="module" src="/static/js/math.js"></script>
+    <script type="module" src="/static/js/rsa.js"></script>
+    <script type="module" src="/static/js/zkp.js"></script>
 
-            // Преобразуем бинарную строку в массив байтов
-            const bytes = new Uint8Array(binaryString.length);
-            for (let i = 0; i < binaryString.length; i++) {
-                bytes[i] = binaryString.charCodeAt(i);
-            }
 
-            // Преобразуем байты в шестнадцатеричную строку
-            const hexString = Array.from(bytes)
-                .map(byte => byte.toString(16).padStart(2, '0'))
-                .join('');
+    <script type="module">
+        import { initializeVoting } from '/static/js/voting.js';
+        import { base64ToBigInt } from '/static/js/math.js';
 
-            // Создаем BigInt из шестнадцатеричной строки
-            return BigInt('0x' + hexString);
-        }
+        // Параметры инициализации
         const EV_PARAMS = {
             voting_id: Number('{{.Voting.ID}}'),
             options_amount: Number('{{len .Voting.Options}}'),
-            publicKey: {
-                n: base64ToBigInt('{{.Crypto.CryptoParametrN}}'),
-                g: base64ToBigInt('{{.Crypto.CryptoParametrG}}') + 1n
+            pailierPublicKey: {
+                n: base64ToBigInt('{{.Crypto.PaillierN}}'),
+                g: base64ToBigInt('{{.Crypto.PaillierN}}') + 1n
             },
             rsaSignPublicKey: {
-                n: base64ToBigInt('{{.Crypto.RSAPublicN}}'),
-                e: base64ToBigInt('{{.Crypto.RSAPublicE}}')
-            }
+                n: base64ToBigInt('{{.Crypto.RsaN}}'),
+                e: base64ToBigInt('{{.Crypto.RsaE}}')
+            },
+            challenge_bits: Number('{{.Crypto.ChallengeBits}}')
         };
-        // Вызываем инициализацию после загрузки DOM
+
+        // Инициализация после загрузки DOM
         document.addEventListener('DOMContentLoaded', () => {
-            window.initializeZKP(EV_PARAMS);
+            initializeVoting(EV_PARAMS);
         });
     </script>
 </body>
