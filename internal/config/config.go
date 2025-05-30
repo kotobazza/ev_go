@@ -45,13 +45,14 @@ type VotingCryptoConfig struct {
 	VotingID string `json:"voting_id"`
 	RSA      struct {
 		N *bigint.BigInt `json:"n"`
-		E *bigint.BigInt `json:"d"`
-		D *bigint.BigInt `json:"e"`
+		D *bigint.BigInt `json:"d"`
+		E *bigint.BigInt `json:"e"`
 	} `json:"rsa"`
 	Paillier struct {
 		N      *bigint.BigInt `json:"n"`
 		Lambda *bigint.BigInt `json:"lambda"`
 	} `json:"paillier"`
+	ChallengeBits  uint `json:"challenge_bits"`
 	BlockCiphering struct {
 		Key []byte `json:"key"`
 		IV  []byte `json:"iv"`
@@ -69,17 +70,17 @@ var (
 // LoadConfigs загружает все конфигурационные файлы
 func LoadConfigs(configPath, cryptoPath string) error {
 	if err := loadJSONConfig(configPath, &Config); err != nil {
-		return fmt.Errorf("ошибка загрузки основного конфига: %w", err)
+		return fmt.Errorf("error loading main config: %w", err)
 	}
 
 	log := logger.GetLogger()
 	log.Info().Msg("Successfully loaded main config")
 
 	if err := loadJSONConfig(cryptoPath, &CryptoParams); err != nil {
-		return fmt.Errorf("ошибка загрузки крипто конфига: %w", err)
+		return fmt.Errorf("error loading crypto configs: %w", err)
 	}
 
-	log.Info().Msg("Successfully loaded crypto config")
+	log.Info().Msg("Successfully loaded crypto configs")
 
 	return nil
 }
@@ -88,16 +89,16 @@ func LoadConfigs(configPath, cryptoPath string) error {
 func loadJSONConfig(path string, config interface{}) error {
 	absPath, err := filepath.Abs(path)
 	if err != nil {
-		return fmt.Errorf("ошибка получения абсолютного пути: %w", err)
+		return fmt.Errorf("error getting absolute path: %w", err)
 	}
 
 	file, err := os.ReadFile(absPath)
 	if err != nil {
-		return fmt.Errorf("ошибка чтения файла: %w", err)
+		return fmt.Errorf("error reading file: %w", err)
 	}
 
 	if err := json.Unmarshal(file, config); err != nil {
-		return fmt.Errorf("ошибка парсинга JSON: %w", err)
+		return fmt.Errorf("error parsing JSON: %w", err)
 	}
 
 	return nil
