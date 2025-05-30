@@ -2,6 +2,8 @@ package utils
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"time"
@@ -10,6 +12,7 @@ import (
 	"ev/internal/database"
 
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/google/uuid"
 	"github.com/rs/zerolog/log"
 )
 
@@ -19,6 +22,7 @@ func CreateToken(userID int) (string, error) {
 		"user_id": float64(userID),
 		"exp":     time.Now().Add(time.Hour * 24).Unix(),
 		"iss":     config.Config.JWT.Issuer,
+		"nonce":   uuid.New().String(),
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
@@ -89,4 +93,59 @@ func InvalidateToken(userID int) error {
 	}
 
 	return nil
+}
+
+func GetUserIDFromToken(tokenString string) (int, error) {
+	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
+		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, errors.New("unexpected signing method")
+		}
+		return []byte(config.Config.JWT.Secret), nil
+	})
+
+	if err != nil {
+		return 0, fmt.Errorf("error parsing token: %v", err)
+	}
+
+	if claims, ok := token.Claims.(jwt.MapClaims); ok {
+		return int(claims["user_id"].(float64)), nil
+	}
+
+	return 0, errors.New("user_id not found in token")
+}
+
+// GetTempIDFromToken извлекает userID и nonce из токена и возвращает их хеш (TempID)
+func GetTempIDFromToken(tokenString string) (string, error) {
+	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
+		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, errors.New("unexpected signing method")
+		}
+		return []byte(config.Config.JWT.Secret), nil
+	})
+
+	if err != nil {
+		return "", fmt.Errorf("error parsing token: %v", err)
+	}
+
+	claims, ok := token.Claims.(jwt.MapClaims)
+	if !ok {
+		return "", errors.New("invalid token claims")
+	}
+
+	userID, ok := claims["user_id"].(float64)
+	if !ok {
+		return "", errors.New("user_id not found or invalid type in token")
+	}
+
+	nonce, ok := claims["nonce"].(string)
+	if !ok {
+		return "", errors.New("nonce not found or invalid type in token")
+	}
+
+	// Создаем хеш из userID и nonce
+	hash := sha256.New()
+	hash.Write([]byte(fmt.Sprintf("%d%s", int(userID), nonce)))
+	tempID := hex.EncodeToString(hash.Sum(nil))
+
+	return tempID, nil
 }
