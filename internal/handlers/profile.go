@@ -7,6 +7,7 @@ import (
 
 	"ev/internal/database"
 	"ev/internal/handlers/render"
+	"ev/internal/logger"
 	"ev/internal/models"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -18,6 +19,11 @@ type ProfilePageData struct {
 }
 
 func ShowProfilePage(w http.ResponseWriter, r *http.Request) {
+	log := logger.GetLogger()
+
+	log.Info().
+		Msg("Requested profile page")
+
 	// Получаем токен из запроса
 	token := extractAndValidateToken(r)
 	if token == nil {
@@ -31,6 +37,9 @@ func ShowProfilePage(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Недействительный токен", http.StatusUnauthorized)
 		return
 	}
+
+	log.Info().
+		Msg("Got UserID from token")
 
 	userID := int(claims["user_id"].(float64))
 
@@ -48,6 +57,9 @@ func ShowProfilePage(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Пользователь не найден", http.StatusNotFound)
 		return
 	}
+
+	log.Info().
+		Msg("Got user from database")
 
 	var votings []models.Voting
 	rows, err := db.Query(ctx, "SELECT id, name, question FROM Votings")
@@ -77,4 +89,7 @@ func ShowProfilePage(w http.ResponseWriter, r *http.Request) {
 		User:    user,
 		Votings: votings,
 	})
+
+	log.Info().
+		Msg("Rendered profile page")
 }

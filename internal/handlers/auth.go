@@ -36,9 +36,7 @@ func ShowLoginPage(w http.ResponseWriter, r *http.Request) {
 	log := logger.GetLogger()
 
 	log.Info().
-		Str("method", r.Method).
-		Str("remote_addr", r.RemoteAddr).
-		Msg("Получен запрос на вход")
+		Msg("Requested login page")
 
 	// Проверяем, есть ли уже валидный токен
 	token := extractAndValidateToken(r)
@@ -51,10 +49,18 @@ func ShowLoginPage(w http.ResponseWriter, r *http.Request) {
 	render.RenderTemplate(w, "login", map[string]interface{}{
 		"ErrorMsg": r.URL.Query().Get("error_msg"),
 	})
+
+	log.Info().
+		Msg("Rendered login page")
 }
 
 // Отдаёт страницу регистрации
 func ShowSignupPage(w http.ResponseWriter, r *http.Request) {
+	log := logger.GetLogger()
+
+	log.Info().
+		Msg("Requested signup page")
+
 	// Проверяем, есть ли уже валидный токен
 	token := extractAndValidateToken(r)
 	if token != nil {
@@ -66,15 +72,19 @@ func ShowSignupPage(w http.ResponseWriter, r *http.Request) {
 	render.RenderTemplate(w, "signup", map[string]interface{}{
 		"ErrorMsg": r.URL.Query().Get("error_msg"),
 	})
+
+	log.Info().
+		Msg("Rendered signup page")
 }
 
 func Signup(w http.ResponseWriter, r *http.Request) {
 	log := logger.GetLogger()
 
 	log.Info().
-		Str("method", r.Method).
-		Str("remote_addr", r.RemoteAddr).
-		Msg("Получен запрос на регистрацию")
+		Msg("Requested signup")
+
+	log.Info().
+		Msg("Form parsing started")
 
 	// Парсим данные формы
 	if err := r.ParseForm(); err != nil {
@@ -88,6 +98,12 @@ func Signup(w http.ResponseWriter, r *http.Request) {
 	login := r.PostForm.Get("login")
 	password := r.PostForm.Get("password")
 	passwordConfirm := r.PostForm.Get("password_confirm")
+
+	log.Info().
+		Msg("Form parsed")
+
+	log.Info().
+		Msg("Checking credentials")
 
 	if password != passwordConfirm {
 		http.Redirect(w, r, "/user/signup?error_msg="+url.QueryEscape("Пароли не совпадают"), http.StatusFound)
@@ -123,6 +139,9 @@ func Signup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	log.Info().
+		Msg("Credentials checked")
+
 	// Создаем нового пользователя
 	var user User
 	err = db.QueryRow(ctx,
@@ -139,6 +158,12 @@ func Signup(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Failed to create user", http.StatusInternalServerError)
 		return
 	}
+
+	log.Info().
+		Msg("Created new user")
+
+	log.Info().
+		Msg("Creating token")
 
 	// Создаем JWT токен
 	token, err := utils.CreateToken(user.ID)
@@ -163,15 +188,19 @@ func Signup(w http.ResponseWriter, r *http.Request) {
 
 	// Делаем редирект на профиль
 	http.Redirect(w, r, "/user/profile", http.StatusFound)
+
+	log.Info().
+		Msg("Redirected to profile and token sent to client")
 }
 
 func Login(w http.ResponseWriter, r *http.Request) {
 	log := logger.GetLogger()
 
 	log.Info().
-		Str("method", r.Method).
-		Str("remote_addr", r.RemoteAddr).
-		Msg("Получен запрос на вход")
+		Msg("Requested login")
+
+	log.Info().
+		Msg("Form parsing started")
 
 	// Парсим данные формы
 	if err := r.ParseForm(); err != nil {
@@ -181,6 +210,12 @@ func Login(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/user/signin?error_msg="+url.QueryEscape("Ошибка при обработке формы"), http.StatusFound)
 		return
 	}
+
+	log.Info().
+		Msg("Form parsed")
+
+	log.Info().
+		Msg("Checking credentials")
 
 	login := r.PostForm.Get("login")
 	password := r.PostForm.Get("password")
@@ -217,6 +252,12 @@ func Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	log.Info().
+		Msg("Credentials checked")
+
+	log.Info().
+		Msg("Creating token")
+
 	// Создаем JWT токен
 	token, err := utils.CreateToken(user.ID)
 	if err != nil {
@@ -241,9 +282,16 @@ func Login(w http.ResponseWriter, r *http.Request) {
 
 	// Делаем редирект на профиль
 	http.Redirect(w, r, "/user/profile", http.StatusFound)
+	log.Info().
+		Msg("Redirected to profile and token sent to client")
 }
 
 func Logout(w http.ResponseWriter, r *http.Request) {
+	log := logger.GetLogger()
+
+	log.Info().
+		Msg("Requested logout")
+
 	// Получаем токен
 	token := extractAndValidateToken(r)
 	if token != nil {
@@ -266,6 +314,9 @@ func Logout(w http.ResponseWriter, r *http.Request) {
 
 	// Перенаправляем на страницу входа
 	http.Redirect(w, r, "/user/signin", http.StatusFound)
+
+	log.Info().
+		Msg("Redirected to login page and token invalidated")
 }
 
 // Извлекает и проверяет токен из запроса
