@@ -23,49 +23,95 @@ type BallotRequestData struct {
 	ZKPProofAVec    []string `json:"zkp_proof_a_vec"`
 	Signature       string   `json:"signature"`
 	Label           string   `json:"label"`
+	OldLabel        string   `json:"old_label"`
+	OldNonce        string   `json:"old_nonce"`
 }
 
 type BallotResponseData struct {
-	Status bool `json:"status"`
+	Success bool   `json:"success"`
+	Message string `json:"message"`
+}
+
+func addPadding(s string) string {
+	for len(s)%4 != 0 {
+		s += "="
+	}
+	return s
 }
 
 func SubmitVote(w http.ResponseWriter, r *http.Request) {
 	log := logger.GetLogger()
 	log.Info().Msg("Requested vote submission")
+	w.Header().Set("Content-Type", "application/json")
 
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
-		http.Error(w, "Error reading request body", http.StatusBadRequest)
-		log.Error().Msg("Error reading request body")
+		w.WriteHeader(http.StatusBadRequest)
+		err = json.NewEncoder(w).Encode(BallotResponseData{
+			Success: false,
+			Message: "Ошибка при получении временного ID",
+		})
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			log.Error().Err(err).Msg("Error sending response")
+		}
 		return
 	}
 
 	var data BallotRequestData
 	err = json.Unmarshal(body, &data)
 	if err != nil {
-		http.Error(w, "Error parsing JSON", http.StatusBadRequest)
-		log.Error().Msg("Error parsing JSON")
+		w.WriteHeader(http.StatusBadRequest)
+		err = json.NewEncoder(w).Encode(BallotResponseData{
+			Success: false,
+			Message: "Ошибка при парсинге JSON данных бюллетеня",
+		})
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			log.Error().Err(err).Msg("Error sending response")
+		}
 		return
 	}
 
 	ballot, err := bigint.NewBigIntFromBase64(data.EncryptedBallot)
 	if err != nil {
-		http.Error(w, "Error parsing ballot", http.StatusBadRequest)
-		log.Error().Msg("Error parsing ballot")
+		w.WriteHeader(http.StatusBadRequest)
+		err = json.NewEncoder(w).Encode(BallotResponseData{
+			Success: false,
+			Message: "Ошибка при парсинге бюллетеня",
+		})
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			log.Error().Err(err).Msg("Error sending response")
+		}
 		return
 	}
 
 	votingIDStr := fmt.Sprintf("%d", data.VotingID)
 	if ballot.Gt(config.CryptoParams[votingIDStr].RSA.N) {
-		http.Error(w, "Blinded ballot is too large", http.StatusBadRequest)
-		log.Error().Msg("Blinded ballot is too large")
+		w.WriteHeader(http.StatusBadRequest)
+		err = json.NewEncoder(w).Encode(BallotResponseData{
+			Success: false,
+			Message: "Бюллетень слишком большой",
+		})
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			log.Error().Err(err).Msg("Error sending response")
+		}
 		return
 	}
 
 	label, err := bigint.NewBigIntFromBase64(data.Label)
 	if err != nil {
-		http.Error(w, "Error parsing label", http.StatusBadRequest)
-		log.Error().Msg("Error parsing label")
+		w.WriteHeader(http.StatusBadRequest)
+		err = json.NewEncoder(w).Encode(BallotResponseData{
+			Success: false,
+			Message: "Ошибка при парсинге метки",
+		})
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			log.Error().Err(err).Msg("Error sending response")
+		}
 		return
 	}
 	bs := blind_signature.BlindSignature{}
@@ -74,19 +120,146 @@ func SubmitVote(w http.ResponseWriter, r *http.Request) {
 
 	signature, err := bigint.NewBigIntFromBase64(data.Signature)
 	if err != nil {
-		http.Error(w, "Error parsing signature", http.StatusBadRequest)
-		log.Error().Msg("Error parsing signature")
+		w.WriteHeader(http.StatusBadRequest)
+		err = json.NewEncoder(w).Encode(BallotResponseData{
+			Success: false,
+			Message: "Ошибка при парсинге подписи",
+		})
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			log.Error().Err(err).Msg("Error sending response")
+		}
 		return
 	}
 
+	var isReVoted bool = false
+	var oldLabel *bigint.BigInt = nil
+
 	if !bs.Verify(label, signature, config.CryptoParams[votingIDStr].RSA.E, config.CryptoParams[votingIDStr].RSA.N) {
-		http.Error(w, "Error verifying signature", http.StatusBadRequest)
-		log.Error().Msg("Error verifying signature")
-		log.Error().Msg("signature: " + signature.ToBase64())
-		log.Error().Msg("ballot: " + label.ToBase64())
-		log.Error().Msg("e: " + config.CryptoParams[votingIDStr].RSA.E.ToBase64())
-		log.Error().Msg("n: " + config.CryptoParams[votingIDStr].RSA.N.ToBase64())
-		return
+		if !bs.Verify(label.Mul(bigint.NewBigIntFromUint(config.CryptoParams[votingIDStr].ReVotingMultiplier)), signature, config.CryptoParams[votingIDStr].RSA.E, config.CryptoParams[votingIDStr].RSA.N) {
+
+			w.WriteHeader(http.StatusBadRequest)
+			err = json.NewEncoder(w).Encode(BallotResponseData{
+				Success: false,
+				Message: "Ошибка при верификации подписи",
+			})
+			if err != nil {
+				w.WriteHeader(http.StatusInternalServerError)
+				log.Error().Err(err).Msg("Error sending response")
+			}
+			log.Error().Msg("signature: " + signature.ToBase64())
+			log.Error().Msg("ballot: " + label.ToBase64())
+			log.Error().Msg("e: " + config.CryptoParams[votingIDStr].RSA.E.ToBase64())
+			log.Error().Msg("n: " + config.CryptoParams[votingIDStr].RSA.N.ToBase64())
+			return
+		} else {
+			log.Error().Msg("Re-voted signature verified")
+			if data.OldLabel == "" || data.OldNonce == "" {
+				w.WriteHeader(http.StatusBadRequest)
+				err = json.NewEncoder(w).Encode(BallotResponseData{
+					Success: false,
+					Message: "Ошибка при парсинге системы меток метки",
+				})
+				if err != nil {
+					w.WriteHeader(http.StatusInternalServerError)
+					log.Error().Err(err).Msg("Error sending response")
+				}
+				return
+			}
+			oldLabel, err = bigint.NewBigIntFromBase64(addPadding(data.OldLabel))
+			if err != nil {
+				log.Error().Err(err).Msg("Error parsing old label")
+				log.Error().Msg("data.OldLabel: " + data.OldLabel)
+				log.Error().Msg("data: " + string(body))
+
+				w.WriteHeader(http.StatusBadRequest)
+				err = json.NewEncoder(w).Encode(BallotResponseData{
+					Success: false,
+					Message: "Ошибка при парсинге старой метки " + err.Error(),
+				})
+
+				if err != nil {
+					w.WriteHeader(http.StatusInternalServerError)
+					log.Error().Err(err).Msg("Error sending response")
+				}
+				return
+			}
+			oldNonce, err := bigint.NewBigIntFromBase64(data.OldNonce)
+			if err != nil {
+				w.WriteHeader(http.StatusBadRequest)
+				err = json.NewEncoder(w).Encode(BallotResponseData{
+					Success: false,
+					Message: "Ошибка при парсинге старого nonce",
+				})
+				if err != nil {
+					w.WriteHeader(http.StatusInternalServerError)
+					log.Error().Err(err).Msg("Error sending response")
+				}
+				return
+			}
+
+			db := database.GetCounterPGConnection()
+			ctx := context.Background()
+
+			rows, err := db.Query(ctx,
+				"SELECT encrypted_vote FROM encrypted_votes WHERE voting_id = $1 AND label = $2",
+				data.VotingID,
+				oldLabel.ToBase64(),
+			)
+			if err != nil {
+				w.WriteHeader(http.StatusInternalServerError)
+				err = json.NewEncoder(w).Encode(BallotResponseData{
+					Success: false,
+					Message: "Ошибка при проверке бюллетеня",
+				})
+				if err != nil {
+					w.WriteHeader(http.StatusInternalServerError)
+					log.Error().Err(err).Msg("Error sending response")
+				}
+				return
+			}
+
+			if !rows.Next() {
+				w.WriteHeader(http.StatusBadRequest)
+				err = json.NewEncoder(w).Encode(BallotResponseData{
+					Success: false,
+					Message: "Старый бюллетень не найден",
+				})
+				if err != nil {
+					w.WriteHeader(http.StatusInternalServerError)
+					log.Error().Err(err).Msg("Error sending response")
+				}
+				return
+			}
+			var encryptedVote string
+			err = rows.Scan(&encryptedVote)
+			if err != nil {
+				w.WriteHeader(http.StatusInternalServerError)
+				log.Error().Err(err).Msg("Error sending response")
+			}
+			encryptedVoteBigint, err := bigint.NewBigIntFromBase64(encryptedVote)
+			if err != nil {
+				w.WriteHeader(http.StatusInternalServerError)
+				log.Error().Err(err).Msg("Error sending response")
+			}
+
+			computedLabel := zkp.ComputeDigest([]*bigint.BigInt{oldNonce, encryptedVoteBigint})
+			if computedLabel.Neq(oldLabel) {
+				w.WriteHeader(http.StatusBadRequest)
+				err = json.NewEncoder(w).Encode(BallotResponseData{
+					Success: false,
+					Message: "Старый бюллетень не соответствует метке",
+				})
+				if err != nil {
+					w.WriteHeader(http.StatusInternalServerError)
+					log.Error().Err(err).Msg("Error sending response")
+				}
+				return
+			}
+			log.Info().Msg("Old ballot verified")
+			isReVoted = true
+
+		}
 	}
 
 	log.Info().Msg("Signature verified")
@@ -99,8 +272,15 @@ func SubmitVote(w http.ResponseWriter, r *http.Request) {
 	for i, e := range data.ZKPProofEVec {
 		zkpProofEVec[i], err = bigint.NewBigIntFromBase64(e)
 		if err != nil {
-			http.Error(w, "Error parsing ZKP proof E vector", http.StatusBadRequest)
-			log.Error().Msg("Error parsing ZKP proof E vector")
+			w.WriteHeader(http.StatusBadRequest)
+			err = json.NewEncoder(w).Encode(BallotResponseData{
+				Success: false,
+				Message: "Ошибка при парсинге ZKP proof E вектора",
+			})
+			if err != nil {
+				w.WriteHeader(http.StatusInternalServerError)
+				log.Error().Err(err).Msg("Error sending response")
+			}
 			return
 		}
 	}
@@ -108,8 +288,15 @@ func SubmitVote(w http.ResponseWriter, r *http.Request) {
 	for i, z := range data.ZKPProofZVec {
 		zkpProofZVec[i], err = bigint.NewBigIntFromBase64(z)
 		if err != nil {
-			http.Error(w, "Error parsing ZKP proof Z vector", http.StatusBadRequest)
-			log.Error().Msg("Error parsing ZKP proof Z vector")
+			w.WriteHeader(http.StatusBadRequest)
+			err = json.NewEncoder(w).Encode(BallotResponseData{
+				Success: false,
+				Message: "Ошибка при парсинге ZKP proof Z вектора",
+			})
+			if err != nil {
+				w.WriteHeader(http.StatusInternalServerError)
+				log.Error().Err(err).Msg("Error sending response")
+			}
 			return
 		}
 	}
@@ -117,8 +304,15 @@ func SubmitVote(w http.ResponseWriter, r *http.Request) {
 	for i, a := range data.ZKPProofAVec {
 		zkpProofAVec[i], err = bigint.NewBigIntFromBase64(a)
 		if err != nil {
-			http.Error(w, "Error parsing ZKP proof A vector", http.StatusBadRequest)
-			log.Error().Msg("Error parsing ZKP proof A vector")
+			w.WriteHeader(http.StatusBadRequest)
+			err = json.NewEncoder(w).Encode(BallotResponseData{
+				Success: false,
+				Message: "Ошибка при парсинге ZKP proof A вектора",
+			})
+			if err != nil {
+				w.WriteHeader(http.StatusInternalServerError)
+				log.Error().Err(err).Msg("Error sending response")
+			}
 			return
 		}
 	}
@@ -132,8 +326,15 @@ func SubmitVote(w http.ResponseWriter, r *http.Request) {
 	zkp := zkp.NewCorrectMessageProof(zkpProofEVec, zkpProofZVec, zkpProofAVec, ballot, validMessages, config.CryptoParams[votingIDStr].Paillier.N, config.CryptoParams[votingIDStr].ChallengeBits)
 	err = zkp.Verify()
 	if err != nil {
-		http.Error(w, "Error verifying ZKP proof: "+err.Error(), http.StatusBadRequest)
-		log.Error().Msg("Error verifying ZKP proof: " + err.Error())
+		w.WriteHeader(http.StatusBadRequest)
+		err = json.NewEncoder(w).Encode(BallotResponseData{
+			Success: false,
+			Message: "Ошибка при верификации ZKP proof: " + err.Error(),
+		})
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			log.Error().Err(err).Msg("Error sending response")
+		}
 		return
 	}
 
@@ -141,6 +342,21 @@ func SubmitVote(w http.ResponseWriter, r *http.Request) {
 
 	db := database.GetCounterPGConnection()
 	ctx := context.Background()
+
+	if isReVoted {
+		//Посылаем запрос на удаление старого бюллетеня
+		log.Info().Msg("Deleting old ballot")
+		_, err = db.Exec(ctx,
+			"DELETE FROM encrypted_votes WHERE voting_id = $1 AND label = $2",
+			data.VotingID,
+			oldLabel.ToBase64(),
+		)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			log.Error().Err(err).Msg("Error sending response")
+		}
+		log.Info().Msg("Old ballot deleted")
+	}
 
 	_, err = db.Exec(ctx,
 		"INSERT INTO encrypted_votes (voting_id, label, encrypted_vote, created_at) VALUES ($1, $2, $3, $4)",
@@ -150,14 +366,28 @@ func SubmitVote(w http.ResponseWriter, r *http.Request) {
 		time.Now(),
 	)
 	if err != nil {
-		http.Error(w, "Ошибка при добавлении бюллетеня", http.StatusInternalServerError)
-		log.Error().Msg("Error adding ballot to database")
+		w.WriteHeader(http.StatusInternalServerError)
+		err = json.NewEncoder(w).Encode(BallotResponseData{
+			Success: false,
+			Message: "Ошибка при добавлении бюллетеня",
+		})
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			log.Error().Err(err).Msg("Error sending response")
+		}
 		return
 	}
 
 	log.Info().Msg("Ballot added to database")
 
-	json.NewEncoder(w).Encode(BallotResponseData{Status: true})
+	err = json.NewEncoder(w).Encode(BallotResponseData{
+		Success: true,
+		Message: "Бюллетень добавлен в базу данных",
+	})
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		log.Error().Err(err).Msg("Error sending response")
+	}
 
 	log.Info().Msg("Vote submitted successfully")
 

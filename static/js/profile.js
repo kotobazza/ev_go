@@ -41,6 +41,27 @@ export function getUserData() {
 
 
 
+export function getOldVotingParams(votingId) {
+    const cookies = Object.fromEntries(
+        document.cookie.split('; ').map(c => c.split('=')) // превращаем в объект
+    );
+
+    const oldLabel = cookies[`oldLabel_${votingId}`];
+    const oldNonce = cookies[`oldNonce_${votingId}`];
+
+    console.log(cookies)
+
+    if (!oldLabel || !oldNonce) {
+        return null;
+    }
+
+    return {
+        oldLabel,
+        oldNonce,
+    };
+}
+
+
 
 export async function userToNonce(user) {
     // 1. Преобразуем объект user в строку JSON

@@ -1,6 +1,7 @@
 package models
 
 type TempID struct {
-	ID     int
-	TempID string
+	ID       int
+	VotingID int
+	TempID   string
 }

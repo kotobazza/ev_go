@@ -68,9 +68,10 @@ type VotingCryptoConfig struct {
 		N      *bigint.BigInt `json:"n"`
 		Lambda *bigint.BigInt `json:"lambda"`
 	} `json:"paillier"`
-	ChallengeBits  uint `json:"challenge_bits"`
-	Base           uint `json:"base"`
-	BlockCiphering struct {
+	ChallengeBits      uint   `json:"challenge_bits"`
+	Base               uint   `json:"base"`
+	ReVotingMultiplier uint64 `json:"re_voting_multiplier"`
+	BlockCiphering     struct {
 		Key []byte `json:"key"`
 		IV  []byte `json:"iv"`
 	} `json:"block_ciphering"`

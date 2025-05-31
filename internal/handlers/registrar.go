@@ -62,11 +62,12 @@ func ShowProfilePage(w http.ResponseWriter, r *http.Request) {
 }
 
 type VotingPageCryptParams struct {
-	RsaN          string
-	RsaE          string
-	PaillierN     string
-	ChallengeBits uint
-	Base          uint
+	RsaN               string
+	RsaE               string
+	PaillierN          string
+	ChallengeBits      uint
+	Base               uint
+	ReVotingMultiplier uint64
 }
 
 type VotingPageData struct {
@@ -131,11 +132,12 @@ func ShowVotingPage(w http.ResponseWriter, r *http.Request, votingID string) {
 		Voting:  voting,
 		Options: voting.Options,
 		Crypto: VotingPageCryptParams{
-			RsaN:          cryptoParams.RSA.N.ToBase64(),
-			RsaE:          cryptoParams.RSA.E.ToBase64(),
-			PaillierN:     cryptoParams.Paillier.N.ToBase64(),
-			ChallengeBits: cryptoParams.ChallengeBits,
-			Base:          cryptoParams.Base,
+			RsaN:               cryptoParams.RSA.N.ToBase64(),
+			RsaE:               cryptoParams.RSA.E.ToBase64(),
+			PaillierN:          cryptoParams.Paillier.N.ToBase64(),
+			ChallengeBits:      cryptoParams.ChallengeBits,
+			Base:               cryptoParams.Base,
+			ReVotingMultiplier: cryptoParams.ReVotingMultiplier,
 		},
 	})
 
@@ -199,70 +201,127 @@ func RegisterVote(w http.ResponseWriter, r *http.Request) {
 
 	log := logger.GetLogger()
 	log.Info().Msg("Requested vote registration")
+	w.Header().Set("Content-Type", "application/json")
 
 	tempID, err := getUserTempID(r)
 	if err != nil {
-		http.Error(w, "Ошибка при получении временного ID", http.StatusInternalServerError)
+		w.WriteHeader(http.StatusBadRequest)
+		err = json.NewEncoder(w).Encode(ResponseData{
+			Signature: "",
+			Success:   false,
+			Message:   "Ошибка при получении временного ID",
+		})
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			log.Error().Err(err).Msg("Error sending response")
+		}
 		return
 	}
 
 	log.Info().Msg("User temp ID found in User's request")
 
-	db := database.GetREGPGConnection()
-	ctx := context.Background()
-
-	rows, err := db.Query(ctx,
-		"SELECT id FROM tempIDs WHERE temp_id = $1",
-		tempID,
-	)
-
-	if err != nil {
-		http.Error(w, "Ошибка при получении временного ID", http.StatusInternalServerError)
-		return
-	}
-
-	defer rows.Close()
-
-	if rows.Next() {
-		log.Error().Msg("Temp ID found in database")
-		http.Error(w, "Отказ в подписи бюллетеня: tempID найден в базе", http.StatusForbidden)
-		return
-	}
-
-	_, err = db.Exec(ctx,
-		"INSERT INTO tempIDs (temp_id) VALUES ($1)",
-		tempID,
-	)
-	if err != nil {
-		http.Error(w, "Ошибка при добавлении временного ID", http.StatusInternalServerError)
-		return
-	}
-
-	log.Info().Msg("Temp ID added to database")
-
-	w.Header().Set("Content-Type", "application/json")
-
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
-		http.Error(w, "Error reading request body", http.StatusBadRequest)
-		log.Error().Msg("Error reading request body")
+		w.WriteHeader(http.StatusBadRequest)
+		err = json.NewEncoder(w).Encode(ResponseData{
+			Signature: "",
+			Success:   false,
+			Message:   "Ошибка при чтении тела запроса",
+		})
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			log.Error().Err(err).Msg("Error sending response")
+
+		}
 		return
 	}
 
 	var data RequestData
 	err = json.Unmarshal(body, &data)
 	if err != nil {
-		http.Error(w, "Error parsing JSON", http.StatusBadRequest)
-		log.Error().Msg("Error parsing JSON")
-		log.Error().Msg(string(body))
-		log.Error().Err(err).Msg("JSON unmarshal error details")
+		w.WriteHeader(http.StatusBadRequest)
+		err = json.NewEncoder(w).Encode(ResponseData{
+			Signature: "",
+			Success:   false,
+			Message:   "Ошибка при парсинге JSON данных бюллетеня",
+		})
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			log.Error().Err(err).Msg("Error sending response")
+		}
 		return
 	}
 
-	blindedBallot, err := bigint.NewBigIntFromBase64(data.BlindedBallot)
+	db := database.GetREGPGConnection()
+	ctx := context.Background()
+
+	rows, err := db.Query(ctx,
+		"SELECT id FROM tempIDs WHERE temp_id = $1 AND voting_id = $2",
+		tempID,
+		data.VotingID,
+	)
+
 	if err != nil {
-		http.Error(w, "Error parsing blinded ballot", http.StatusBadRequest)
-		log.Error().Msg("Error parsing blinded ballot")
+		w.WriteHeader(http.StatusInternalServerError)
+		err = json.NewEncoder(w).Encode(ResponseData{
+			Signature: "",
+			Success:   false,
+			Message:   "Ошибка при проверке наличия временного ID в базе",
+		})
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			log.Error().Err(err).Msg("Error sending response")
+		}
+		return
+	}
+
+	defer rows.Close()
+
+	isReVoted := false
+
+	if rows.Next() {
+		log.Error().Msg("Temp ID found in database - use redefined parameter in signature")
+		isReVoted = true
+	}
+
+	if !isReVoted {
+		_, err = db.Exec(ctx,
+			"INSERT INTO tempIDs (temp_id, voting_id) VALUES ($1, $2)",
+			tempID,
+			data.VotingID,
+		)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			err = json.NewEncoder(w).Encode(ResponseData{
+				Signature: "",
+				Success:   false,
+				Message:   "Ошибка при добавлении временного ID в базу",
+			})
+			if err != nil {
+				w.WriteHeader(http.StatusInternalServerError)
+				log.Error().Err(err).Msg("Error sending response")
+
+			}
+			return
+		}
+
+		log.Info().Msg("Temp ID added to database")
+	}
+
+	blindedBallot, err := bigint.NewBigIntFromBase64(data.BlindedBallot)
+
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		err = json.NewEncoder(w).Encode(ResponseData{
+			Signature: "",
+			Success:   false,
+			Message:   "Ошибка при парсинге JSON данных бюллетеня",
+		})
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			log.Error().Err(err).Msg("Error sending response")
+
+		}
 		return
 	}
 
@@ -272,13 +331,20 @@ func RegisterVote(w http.ResponseWriter, r *http.Request) {
 
 	bs := blind_signature.BlindSignature{}
 
-	signature := bs.SignBlinded(blindedBallot, config.CryptoParams[votingIDStr].RSA.D, config.CryptoParams[votingIDStr].RSA.N)
+	var signature *bigint.BigInt
 
-	w.Header().Set("Content-Type", "application/json")
+	if isReVoted {
+		signature = bs.SignBlinded(blindedBallot.Mul(bigint.NewBigIntFromUint(config.CryptoParams[votingIDStr].ReVotingMultiplier)), config.CryptoParams[votingIDStr].RSA.D, config.CryptoParams[votingIDStr].RSA.N)
+		log.Info().Msg("Re-voted signature generated")
+	} else {
+		signature = bs.SignBlinded(blindedBallot, config.CryptoParams[votingIDStr].RSA.D, config.CryptoParams[votingIDStr].RSA.N)
+		log.Info().Msg("Signature generated")
+	}
+
 	err = json.NewEncoder(w).Encode(ResponseData{
 		Signature: signature.ToBase64(),
 		Success:   true,
-		Message:   "Vote registered successfully",
+		Message:   "Бюллетень зарегистрирован успешно",
 	})
 	if err != nil {
 		http.Error(w, "Error encoding JSON", http.StatusInternalServerError)

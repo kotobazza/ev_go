@@ -1,5 +1,6 @@
 CREATE TABLE IF NOT EXISTS tempIDs (
     id SERIAL PRIMARY KEY,
+    voting_id INT NOT NULL,
     temp_id TEXT NOT NULL
 );
 

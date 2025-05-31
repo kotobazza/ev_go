@@ -36,3 +36,8 @@ export function verifySignature(message, signature, rsaSignPublicKey) {
     const calculatedMessage = modPow(s, e, n);
     return message === calculatedMessage;
 }
+
+
+export function verifySignatureWithMultiplier(message, signature, rsaSignPublicKey, multiplier) {
+    return verifySignature(message, signature, rsaSignPublicKey) || verifySignature(message * multiplier, signature, rsaSignPublicKey);
+}

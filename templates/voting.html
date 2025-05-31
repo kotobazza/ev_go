@@ -7,7 +7,6 @@
     <title>Система EV</title>
     <script src="https://cdn.jsdelivr.net/npm/paillier-bigint@latest/dist/bundle.iife.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/js-sha256/0.9.0/sha256.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
     <link rel="stylesheet" href="/static/css/main.css">
     <style>
         #votingProcess {
@@ -45,6 +44,11 @@
         .step.completed {
             background: #f1f8e9;
             border-color: #a5d6a7;
+        }
+
+        .step.error {
+            background: #ffcdd2;
+            border-color: #ef5350;
         }
 
         .step-number {
@@ -185,7 +189,9 @@
                             <div class="step-content">
                                 <h3>Шифрование голоса</h3>
                                 <div class="step-status">Ожидание...</div>
+
                             </div>
+                            <div class="error-message" style="display: none;"></div>
                         </div>
                         <div class="step" id="step2">
                             <div class="step-number">2</div>
@@ -195,7 +201,9 @@
                                 <div class="step-details" style="display: none;">
                                     <p>Подпись (первые 20 символов):</p>
                                     <code class="signature-preview"></code>
+
                                 </div>
+                                <div class="error-message" style="display: none;"></div>
                             </div>
                         </div>
                         <div class="step" id="step3">
@@ -207,6 +215,7 @@
                                     <p>Ответ Счетчика:</p>
                                     <code class="counter-response"></code>
                                 </div>
+                                <div class="error-message" style="display: none;"></div>
                             </div>
                         </div>
                     </div>
@@ -214,8 +223,11 @@
                         <h3>Ваш голос успешно принят!</h3>
                         <div class="ballot-label">
                             <p>Ваш уникальный идентификатор бюллетеня:</p>
-                            <div id="qrCode"></div>
+                            <a href="/voting/"><canvas id="qrcode"></canvas></a>
                             <code class="label-preview"></code>
+                            <p>Наведите камеру на QR-код для проверки голоса или перейдите по ссылке выше внутри QR-кода
+                            </p>
+
                         </div>
                     </div>
                 </div>
@@ -237,6 +249,7 @@
     <script type="module" src="/static/js/rsa.js"></script>
     <script type="module" src="/static/js/zkp.js"></script>
 
+    <script src="https://cdn.jsdelivr.net/npm/qrcode/build/qrcode.min.js"></script>
 
     <script type="module">
         import { initializeVoting } from '/static/js/voting.js';
@@ -255,7 +268,7 @@
             },
             challenge_bits: Number('{{.Crypto.ChallengeBits}}'),
             base: BigInt('{{.Crypto.Base}}'),
-
+            re_voting_multiplier: BigInt('{{.Crypto.ReVotingMultiplier}}')
         }
 
 
