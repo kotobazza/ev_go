@@ -53,6 +53,8 @@ func main() {
 
 	// Защищенные страницы (GET)
 	mux.Handle("/user/profile", middleware.AuthMiddleware(http.HandlerFunc(handlers.ShowProfilePage)))
+	mux.Handle("/auth/user-info", middleware.AuthMiddleware(http.HandlerFunc(handlers.GetUserInfo)))
+	mux.Handle("/auth/temp-id", middleware.AuthMiddleware(http.HandlerFunc(handlers.GetTempID)))
 
 	mux.Handle("/voting/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Получаем ID из URL

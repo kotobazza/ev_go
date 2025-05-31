@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"net/url"
 
 	"ev/internal/config"
 	"ev/internal/crypto/bigint"
@@ -30,12 +29,6 @@ type BallotResponseData struct {
 func SubmitVote(w http.ResponseWriter, r *http.Request) {
 	log := logger.GetLogger()
 	log.Info().Msg("Requested vote submission")
-
-	token := extractAndValidateToken(r)
-	if token == nil {
-		http.Redirect(w, r, "/user/signin?error_msg="+url.QueryEscape("Пожалуйста, войдите в систему"), http.StatusFound)
-		return
-	}
 
 	body, err := io.ReadAll(r.Body)
 	if err != nil {

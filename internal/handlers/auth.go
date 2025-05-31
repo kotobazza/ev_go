@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"encoding/json"
 	"html/template"
 	"net/http"
 	"net/url"
@@ -332,4 +333,70 @@ func extractAndValidateToken(r *http.Request) *jwt.Token {
 	}
 
 	return token
+}
+
+// GetUserInfo возвращает информацию о пользователе на основе токена
+func GetUserInfo(w http.ResponseWriter, r *http.Request) {
+	log := logger.GetLogger()
+
+	log.Info().Msg("Requested user info")
+
+	// Получаем и проверяем токен
+	token := extractAndValidateToken(r)
+	if token == nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	// Получаем ID пользователя из токена
+	userID, err := utils.GetUserIDFromToken(token)
+	if err != nil {
+		log.Error().Err(err).Msg("Failed to get user ID from token")
+		http.Error(w, "Failed to get user info", http.StatusInternalServerError)
+		return
+	}
+
+	// Получаем информацию о пользователе из базы данных
+	db := database.GetPGConnection()
+	ctx := context.Background()
+
+	var user User
+	err = db.QueryRow(ctx,
+		"SELECT id, login FROM Users WHERE id = $1",
+		userID,
+	).Scan(&user.ID, &user.Login)
+
+	if err != nil {
+		log.Error().Err(err).Msg("Failed to get user from database")
+		http.Error(w, "Failed to get user info", http.StatusInternalServerError)
+		return
+	}
+
+	json.NewEncoder(w).Encode(user)
+}
+
+// GetTempID возвращает временный ID пользователя на основе токена
+func GetTempID(w http.ResponseWriter, r *http.Request) {
+	log := logger.GetLogger()
+
+	log.Info().Msg("Requested temp ID")
+
+	// Получаем и проверяем токен
+	token := extractAndValidateToken(r)
+	if token == nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	// Получаем временный ID из токена
+	tempID, err := utils.GetTempIDFromToken(token)
+	if err != nil {
+		log.Error().Err(err).Msg("Failed to get temp ID from token")
+		http.Error(w, "Failed to get temp ID", http.StatusInternalServerError)
+		return
+	}
+
+	json.NewEncoder(w).Encode(map[string]string{
+		"temp_id": tempID,
+	})
 }

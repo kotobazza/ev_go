@@ -95,17 +95,7 @@ func InvalidateToken(userID int) error {
 	return nil
 }
 
-func GetUserIDFromToken(tokenString string) (int, error) {
-	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
-		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-			return nil, errors.New("unexpected signing method")
-		}
-		return []byte(config.Config.JWT.Secret), nil
-	})
-
-	if err != nil {
-		return 0, fmt.Errorf("error parsing token: %v", err)
-	}
+func GetUserIDFromToken(token *jwt.Token) (int, error) {
 
 	if claims, ok := token.Claims.(jwt.MapClaims); ok {
 		return int(claims["user_id"].(float64)), nil
@@ -114,18 +104,7 @@ func GetUserIDFromToken(tokenString string) (int, error) {
 	return 0, errors.New("user_id not found in token")
 }
 
-// GetTempIDFromToken извлекает userID и nonce из токена и возвращает их хеш (TempID)
-func GetTempIDFromToken(tokenString string) (string, error) {
-	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
-		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-			return nil, errors.New("unexpected signing method")
-		}
-		return []byte(config.Config.JWT.Secret), nil
-	})
-
-	if err != nil {
-		return "", fmt.Errorf("error parsing token: %v", err)
-	}
+func GetTempIDFromToken(token *jwt.Token) (string, error) {
 
 	claims, ok := token.Claims.(jwt.MapClaims)
 	if !ok {
