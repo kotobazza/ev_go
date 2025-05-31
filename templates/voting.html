@@ -7,7 +7,150 @@
     <title>Система EV</title>
     <script src="https://cdn.jsdelivr.net/npm/paillier-bigint@latest/dist/bundle.iife.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/js-sha256/0.9.0/sha256.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
     <link rel="stylesheet" href="/static/css/main.css">
+    <style>
+        #votingProcess {
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid #e0e0e0;
+        }
+
+        #votingProcess h2 {
+            color: #333;
+            font-size: 1.2em;
+            margin-bottom: 20px;
+        }
+
+        .voting-steps {
+            margin: 20px 0;
+        }
+
+        .step {
+            display: flex;
+            align-items: flex-start;
+            margin-bottom: 15px;
+            padding: 12px;
+            border-radius: 6px;
+            background: #f8f9fa;
+            transition: all 0.3s ease;
+            border: 1px solid transparent;
+        }
+
+        .step.active {
+            background: #e3f2fd;
+            border-color: #90caf9;
+        }
+
+        .step.completed {
+            background: #f1f8e9;
+            border-color: #a5d6a7;
+        }
+
+        .step-number {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            background: #90a4ae;
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 12px;
+            font-weight: bold;
+            font-size: 0.9em;
+        }
+
+        .step.active .step-number {
+            background: #1976d2;
+        }
+
+        .step.completed .step-number {
+            background: #43a047;
+        }
+
+        .step-content {
+            flex: 1;
+        }
+
+        .step-content h3 {
+            margin: 0 0 8px 0;
+            font-size: 1em;
+            color: #37474f;
+        }
+
+        .step-status {
+            font-size: 0.9em;
+            color: #546e7a;
+        }
+
+        .step-details {
+            margin-top: 8px;
+            padding: 8px;
+            background: rgba(255, 255, 255, 0.7);
+            border-radius: 4px;
+            font-size: 0.9em;
+        }
+
+        .voting-result {
+            margin-top: 25px;
+            padding: 20px;
+            background: #f1f8e9;
+            border-radius: 6px;
+            border: 1px solid #a5d6a7;
+            text-align: center;
+        }
+
+        .voting-result h3 {
+            color: #2e7d32;
+            margin-bottom: 15px;
+        }
+
+        #qrCode {
+            margin: 15px auto;
+            max-width: 180px;
+            padding: 10px;
+            background: white;
+            border-radius: 4px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .label-preview {
+            display: block;
+            padding: 8px;
+            background: rgba(255, 255, 255, 0.7);
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 0.85em;
+            word-break: break-all;
+            margin: 10px 0;
+            color: #37474f;
+        }
+
+        .signature-preview,
+        .counter-response {
+            display: block;
+            padding: 4px 8px;
+            background: rgba(255, 255, 255, 0.7);
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 0.85em;
+            margin: 5px 0;
+            color: #37474f;
+        }
+
+        /* Анимация появления процесса */
+        #votingProcess {
+            opacity: 0;
+            transform: translateY(-10px);
+            transition: all 0.3s ease;
+        }
+
+        #votingProcess.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    </style>
 </head>
 
 <body>
@@ -31,9 +174,51 @@
                     </div>
                     {{end}}
 
-                    <button type="button" class="button signBallotByRegistrator">Подписать бюллетень</button>
-                    <button type="button" class="button sendVoteButton">Отправить голос</button>
+                    <button type="button" class="button processVotingButton">Отправить голос</button>
                 </form>
+
+                <div id="votingProcess" style="display: none;">
+                    <h2>Процесс отправки голоса</h2>
+                    <div class="voting-steps">
+                        <div class="step" id="step1">
+                            <div class="step-number">1</div>
+                            <div class="step-content">
+                                <h3>Шифрование голоса</h3>
+                                <div class="step-status">Ожидание...</div>
+                            </div>
+                        </div>
+                        <div class="step" id="step2">
+                            <div class="step-number">2</div>
+                            <div class="step-content">
+                                <h3>Подпись Регистратора</h3>
+                                <div class="step-status">Ожидание...</div>
+                                <div class="step-details" style="display: none;">
+                                    <p>Подпись (первые 20 символов):</p>
+                                    <code class="signature-preview"></code>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="step" id="step3">
+                            <div class="step-number">3</div>
+                            <div class="step-content">
+                                <h3>Отправка Счетчику</h3>
+                                <div class="step-status">Ожидание...</div>
+                                <div class="step-details" style="display: none;">
+                                    <p>Ответ Счетчика:</p>
+                                    <code class="counter-response"></code>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="voting-result" style="display: none;">
+                        <h3>Ваш голос успешно принят!</h3>
+                        <div class="ballot-label">
+                            <p>Ваш уникальный идентификатор бюллетеня:</p>
+                            <div id="qrCode"></div>
+                            <code class="label-preview"></code>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -47,6 +232,7 @@
             </div>
         </div>
     </div>
+
     <script type="module" src="/static/js/math.js"></script>
     <script type="module" src="/static/js/rsa.js"></script>
     <script type="module" src="/static/js/zkp.js"></script>
@@ -55,10 +241,8 @@
     <script type="module">
         import { initializeVoting } from '/static/js/voting.js';
         import { base64ToBigInt } from '/static/js/math.js';
-        import { getUserData, generateVoteVariants } from '/static/js/profile.js';
 
-
-        export const EV_STATE = {
+        const EV_STATIC_PARAMS = {
             voting_id: Number('{{.Voting.ID}}'),
             options_amount: Number('{{len .Voting.Options}}'),
             pailierPublicKey: {
@@ -72,25 +256,14 @@
             challenge_bits: Number('{{.Crypto.ChallengeBits}}'),
             base: BigInt('{{.Crypto.Base}}'),
 
-
-
-            zkp_proof: null,
-            vote_variants: generateVoteVariants(EV_STATE.base, EV_STATE.options_amount, EV_STATE.pailierPublicKey),
-            user: getUserData(),
-            enc_vote: null,
-            label: null,
-            label_sig: null,
-
-
-
         }
 
 
-        console.log("EV_STATE: ", EV_STATE);
+        console.log("EV_STATIC_PARAMS: ", EV_STATIC_PARAMS);
 
         // Инициализация после загрузки DOM
         document.addEventListener('DOMContentLoaded', () => {
-            initializeVoting(EV_STATE);
+            initializeVoting(EV_STATIC_PARAMS);
         });
 
 

@@ -1,3 +1,5 @@
+import { modPow } from './math.js';
+
 export function getUserData() {
     console.log('All cookies:', document.cookie);
     // Находим куки userData
@@ -38,10 +40,20 @@ export function getUserData() {
 }
 
 
-export function generateVoteVariants(base, options_amount, pailierPublicKey) {
-    const voteVariants = [];
-    for (let i = 0; i < options_amount; i++) {
-        voteVariants.push(modPow(2n, base * BigInt(i), pailierPublicKey.n ** 2n));
-    }
-    return voteVariants;
+
+
+export async function userToNonce(user) {
+    // 1. Преобразуем объект user в строку JSON
+    const userString = JSON.stringify(user);
+
+    // 2. Создаем хеш SHA-256 (можно заменить на другой алгоритм)
+    const msgBuffer = new TextEncoder().encode(userString);
+    const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
+
+    // 3. Преобразуем хеш в hex-строку
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+
+    // 4. Конвертируем hex в bigint
+    return BigInt('0x' + hashHex);
 }
