@@ -1,22 +1,30 @@
 import { modPow, bigIntToBase64, base64ToBigInt, computeDigest } from './math.js';
 import { blindBallot, unblindSignature, verifySignature } from './rsa.js';
 import { generateProof, verify } from './zkp.js';
+import { getUserData } from './profile.js';
 
 export function initializeVoting(params) {
-    const { voting_id, options_amount, pailierPublicKey, rsaSignPublicKey } = params;
-    console.log("rsaSignPublicKey: ", rsaSignPublicKey);
-    console.log("pailierPublicKey: ", pailierPublicKey);
-    console.log("options_amount: ", options_amount);
+    const { voting_id, options_amount, pailierPublicKey, rsaSignPublicKey, challenge_bits, base, vote_variants, user } = params;
 
-    // Генерация вариантов голосования
-    const voteVariants = [];
-    for (let i = 0; i < options_amount; i++) {
-        voteVariants.push(modPow(2n, 30n * BigInt(i), pailierPublicKey.n ** 2n));
+
+
+
+
+    async function userToNonce(user) {
+        // 1. Преобразуем объект user в строку JSON
+        const userString = JSON.stringify(user);
+
+        // 2. Создаем хеш SHA-256 (можно заменить на другой алгоритм)
+        const msgBuffer = new TextEncoder().encode(userString);
+        const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
+
+        // 3. Преобразуем хеш в hex-строку
+        const hashArray = Array.from(new Uint8Array(hashBuffer));
+        const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+
+        // 4. Конвертируем hex в bigint
+        return BigInt('0x' + hashHex);
     }
-
-
-
-    let proof;
 
     async function showConfirmation() {
         console.log("starting confirmation");
@@ -29,6 +37,7 @@ export function initializeVoting(params) {
         const selectedIndex = parseInt(selectedOption.value);
         const messageToEncrypt = voteVariants[selectedIndex];
 
+
         proof = await generateProof(pailierPublicKey.n, voteVariants, messageToEncrypt);
         document.getElementById('confirmationModal').style.display = 'flex';
     }
@@ -37,14 +46,39 @@ export function initializeVoting(params) {
         document.getElementById('confirmationModal').style.display = 'none';
     }
 
+    // async function signBallotByRegistrator() {
+    //     console.log("starting signBallotByRegistrator");
+    //     const selectedOption = document.querySelector('input[name="vote"]:checked');
+    //     if (!selectedOption) {
+    //         alert('Пожалуйста, выберите вариант ответа');
+    //         return;
+    //     }
+    // }
+
+
+
     async function submitVote() {
         if (!proof) {
             console.error('Proof is not generated');
             return;
         }
 
-        const blindedBallotData = blindBallot(proof.ciphertext, rsaSignPublicKey);
-        const resultBlind = await sendBlindedBallot(proof.ciphertext, blindedBallotData, voting_id);
+        const ciphertext = proof.ciphertext;
+
+        const nonce = await userToNonce(user);
+
+        EV_STATE.label = await computeDigest([nonce, ciphertext]);
+
+
+        const blindedBallotData = blindBallot(EV_STATE.label, rsaSignPublicKey);
+        const resultBlind = await sendBlindedBallot(blindedBallotData, voting_id);
+
+
+        const isVerified = verifySignature(EV_STATE.label, resultBlind.signature, rsaSignPublicKey);
+        if (!isVerified) {
+            console.error("Blind signature is not valid");
+            return;
+        }
 
         if (resultBlind.success) {
             console.log('Бюллетень успешно подписан:', resultBlind.signature.toString());
@@ -59,6 +93,7 @@ export function initializeVoting(params) {
             zkp_proof_z_vec: proof.z_vec.map(z => bigIntToBase64(z)),
             zkp_proof_a_vec: proof.a_vec.map(a => bigIntToBase64(a)),
             signature: bigIntToBase64(resultBlind.signature),
+            label: bigIntToBase64(EV_STATE.label),
         };
 
 
@@ -118,13 +153,11 @@ export function initializeVoting(params) {
         return isValid;
     }
 
-    async function sendBlindedBallot(ballot, blindedBallotData, votingId) {
+    async function sendBlindedBallot(blindedBallotData, votingId) {
         try {
             const ballotData = {
                 voting_id: String(votingId),
-                ballot: bigIntToBase64(ballot),
                 blinded_ballot: bigIntToBase64(blindedBallotData.blindedMessage),
-                r_base64: bigIntToBase64(blindedBallotData.r)
             };
 
             const response = await fetch('/ballot/register', {
@@ -149,8 +182,6 @@ export function initializeVoting(params) {
                     blindedBallotData.r,
                     BigInt(rsaSignPublicKey.n)
                 );
-
-                const isVerified = verifySignature(ballot, unblindedSignature, rsaSignPublicKey);
 
                 return {
                     success: true,
@@ -177,7 +208,9 @@ export function initializeVoting(params) {
     testButton.onclick = testZKP;
     document.body.appendChild(testButton);
 
-    document.querySelector('.button').addEventListener('click', showConfirmation);
+    document.querySelector('.button.sendVoteButton').addEventListener('click', showConfirmation);
     document.querySelector('.modal-button.confirm').addEventListener('click', submitVote);
+    document.querySelector('.button.sendVoteButton').addEventListener('click', submitVote).setAttribute('disabled', true);
     document.querySelector('.modal-button.cancel').addEventListener('click', hideConfirmation);
+    document.querySelector('.button.signBallotByRegistrator').addEventListener('click', signBallotByRegistrator);
 }

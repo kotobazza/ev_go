@@ -26,16 +26,31 @@ func main() {
 	}
 
 	// Инициализируем подключения к базам данных
-	pgPool := database.GetPGConnection()
-	defer database.ClosePGConnection()
+	pgPool := database.GetIDPPGConnection()
+	defer database.CloseIDPPGConnection()
 
-	// Инициализируем Redis
-	_ = database.GetRedisConnection()
-	defer database.CloseRedisConnection()
+	pgPoolREG := database.GetREGPGConnection()
+	defer database.CloseREGPGConnection()
+
+	pgPoolCounter := database.GetCounterPGConnection()
+	defer database.CloseCounterPGConnection()
+
+	_ = database.GetIDPRedisConnection()
+	defer database.CloseIDPRedisConnection()
 
 	// Проверяем подключения
 	if err := pgPool.Ping(context.Background()); err != nil {
-		log.Fatal().Err(err).Msg("Failed to ping PostgreSQL")
+		log.Fatal().Err(err).Msg("Failed to ping IDP PostgreSQL")
+		os.Exit(1)
+	}
+
+	if err := pgPoolREG.Ping(context.Background()); err != nil {
+		log.Fatal().Err(err).Msg("Failed to ping REG PostgreSQL")
+		os.Exit(1)
+	}
+
+	if err := pgPoolCounter.Ping(context.Background()); err != nil {
+		log.Fatal().Err(err).Msg("Failed to ping Counter PostgreSQL")
 		os.Exit(1)
 	}
 
@@ -63,9 +78,29 @@ func main() {
 		handlers.ShowVotingPage(w, r, votingID)
 	}))
 
+	mux.Handle("/admin/votings/delete/", middleware.AuthMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Получаем ID из URL
+		votingID := strings.TrimPrefix(r.URL.Path, "/admin/votings/delete/")
+		// Передаем управление основному обработчику
+		handlers.DeleteVoting(w, r, votingID)
+
+	})))
+	mux.Handle("/admin/users/delete/", middleware.AuthMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Получаем ID из URL
+		userID := strings.TrimPrefix(r.URL.Path, "/admin/users/delete/")
+		// Передаем управление основному обработчику
+		handlers.DeleteUser(w, r, userID)
+
+	})))
+
+	mux.Handle("/admin/temp-ids/delete/", middleware.AuthMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Получаем ID из URL
+		tempID := strings.TrimPrefix(r.URL.Path, "/admin/temp-ids/delete/")
+		// Передаем управление основному обработчику
+		handlers.DeleteTempID(w, r, tempID)
+	})))
+
 	mux.Handle("/admin/votings/create", middleware.AuthMiddleware(http.HandlerFunc(handlers.AddNewVoting)))
-	mux.Handle("/admin/users/delete", middleware.AuthMiddleware(http.HandlerFunc(handlers.DeleteUser)))
-	mux.Handle("/admin/votings/delete", middleware.AuthMiddleware(http.HandlerFunc(handlers.DeleteVoting)))
 
 	mux.Handle("/ballot/register", middleware.AuthMiddleware(http.HandlerFunc(handlers.RegisterVote)))
 	mux.Handle("/ballot/submit", middleware.AuthMiddleware(http.HandlerFunc(handlers.SubmitVote)))

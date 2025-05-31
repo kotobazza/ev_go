@@ -1,7 +1,7 @@
 import { modPow, modInverse, randomBigInt, gcd, computeDigest } from './math.js';
 
 export async function generateProof(n, validMessages, messageToEncrypt) {
-    const nn = n * n;
+    const nn = BigInt(n) * BigInt(n);
     const numOfMessages = validMessages.length;
 
     let r;
@@ -33,8 +33,16 @@ export async function generateProof(n, validMessages, messageToEncrypt) {
     const w = randomBigInt(n);
     const trueIndex = validMessages.findIndex(m => m === messageToEncrypt);
 
+    if (trueIndex === -1) {
+        console.log("trueIndex is -1");
+        console.log(messageToEncrypt);
+        console.log(validMessages);
+        return;
+    }
+
     const aiVec = [];
     let j = 0;
+
     for (let i = 0; i < numOfMessages; i++) {
         if (i === trueIndex) {
             const ai = modPow(w, n, nn);

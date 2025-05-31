@@ -33,7 +33,7 @@ func CreateToken(userID int) (string, error) {
 
 	// Сохраняем токен в Redis
 	ctx := context.Background()
-	redisClient := database.GetRedisConnection()
+	redisClient := database.GetIDPRedisConnection()
 	key := fmt.Sprintf("token:%d", userID)
 	err = redisClient.Set(ctx, key, tokenString, 24*time.Hour).Err()
 	if err != nil {
@@ -62,7 +62,7 @@ func VerifyToken(tokenString string) (*jwt.Token, error) {
 	if claims, ok := token.Claims.(jwt.MapClaims); ok {
 		userID := int(claims["user_id"].(float64))
 		ctx := context.Background()
-		redisClient := database.GetRedisConnection()
+		redisClient := database.GetIDPRedisConnection()
 		key := fmt.Sprintf("token:%d", userID)
 
 		storedToken, err := redisClient.Get(ctx, key).Result()
@@ -84,7 +84,7 @@ func VerifyToken(tokenString string) (*jwt.Token, error) {
 
 func InvalidateToken(userID int) error {
 	ctx := context.Background()
-	redisClient := database.GetRedisConnection()
+	redisClient := database.GetIDPRedisConnection()
 	key := fmt.Sprintf("token:%d", userID)
 
 	err := redisClient.Del(ctx, key).Err()

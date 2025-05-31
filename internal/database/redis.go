@@ -15,9 +15,9 @@ var (
 	redisOnce   sync.Once
 )
 
-func GetRedisConnection() *redis.Client {
+func GetIDPRedisConnection() *redis.Client {
 	redisOnce.Do(func() {
-		redisConfig := getDefaultRedisConfig()
+		redisConfig := getIDPRedisConfig()
 		if redisConfig == nil {
 			panic("Default Redis configuration not found")
 		}
@@ -39,7 +39,7 @@ func GetRedisConnection() *redis.Client {
 	return redisClient
 }
 
-func CloseRedisConnection() {
+func CloseIDPRedisConnection() {
 	if redisClient != nil {
 		redisClient.Close()
 	}

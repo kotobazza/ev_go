@@ -21,18 +21,34 @@ type AppConfig struct {
 			KeyFile  string `json:"key_file"`
 		} `json:"tls"`
 	} `json:"server"`
-	Database struct {
+	IDPDatabase struct {
 		Host            string `json:"host"`
 		Port            int    `json:"port"`
 		Name            string `json:"dbname"`
 		User            string `json:"user"`
 		Password        string `json:"password"`
 		ConnectionLimit int    `json:"connection_limit"`
-	} `json:"database"`
-	Redis struct {
+	} `json:"idp_database"`
+	IDPRedis struct {
 		Host string `json:"host"`
 		Port int    `json:"port"`
-	} `json:"redis"`
+	} `json:"idp_redis"`
+	REGDatabase struct {
+		Host            string `json:"host"`
+		Port            int    `json:"port"`
+		Name            string `json:"dbname"`
+		User            string `json:"user"`
+		Password        string `json:"password"`
+		ConnectionLimit int    `json:"connection_limit"`
+	} `json:"reg_database"`
+	CounterDatabase struct {
+		Host            string `json:"host"`
+		Port            int    `json:"port"`
+		Name            string `json:"dbname"`
+		User            string `json:"user"`
+		Password        string `json:"password"`
+		ConnectionLimit int    `json:"connection_limit"`
+	} `json:"counter_database"`
 	JWT struct {
 		Secret               string `json:"jwtSecret"`
 		Issuer               string `json:"jwtIssuer"`
@@ -53,6 +69,7 @@ type VotingCryptoConfig struct {
 		Lambda *bigint.BigInt `json:"lambda"`
 	} `json:"paillier"`
 	ChallengeBits  uint `json:"challenge_bits"`
+	Base           uint `json:"base"`
 	BlockCiphering struct {
 		Key []byte `json:"key"`
 		IV  []byte `json:"iv"`

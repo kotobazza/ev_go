@@ -16,20 +16,42 @@ type RedisConfig struct {
 	Port int
 }
 
-func getDefaultDBConfig() *PostgresConfig {
+func getIDPDBConfig() *PostgresConfig {
 	return &PostgresConfig{
-		Host:            config.Config.Database.Host,
-		Port:            config.Config.Database.Port,
-		User:            config.Config.Database.User,
-		Password:        config.Config.Database.Password,
-		DBName:          config.Config.Database.Name,
-		ConnectionLimit: config.Config.Database.ConnectionLimit,
+		Host:            config.Config.IDPDatabase.Host,
+		Port:            config.Config.IDPDatabase.Port,
+		User:            config.Config.IDPDatabase.User,
+		Password:        config.Config.IDPDatabase.Password,
+		DBName:          config.Config.IDPDatabase.Name,
+		ConnectionLimit: config.Config.IDPDatabase.ConnectionLimit,
 	}
 }
 
-func getDefaultRedisConfig() *RedisConfig {
+func getIDPRedisConfig() *RedisConfig {
 	return &RedisConfig{
-		Host: config.Config.Redis.Host,
-		Port: config.Config.Redis.Port,
+		Host: config.Config.IDPRedis.Host,
+		Port: config.Config.IDPRedis.Port,
+	}
+}
+
+func getREGDBConfig() *PostgresConfig {
+	return &PostgresConfig{
+		Host:            config.Config.REGDatabase.Host,
+		Port:            config.Config.REGDatabase.Port,
+		User:            config.Config.REGDatabase.User,
+		Password:        config.Config.REGDatabase.Password,
+		DBName:          config.Config.REGDatabase.Name,
+		ConnectionLimit: config.Config.REGDatabase.ConnectionLimit,
+	}
+}
+
+func getCounterDBConfig() *PostgresConfig {
+	return &PostgresConfig{
+		Host:            config.Config.CounterDatabase.Host,
+		Port:            config.Config.CounterDatabase.Port,
+		User:            config.Config.CounterDatabase.User,
+		Password:        config.Config.CounterDatabase.Password,
+		DBName:          config.Config.CounterDatabase.Name,
+		ConnectionLimit: config.Config.CounterDatabase.ConnectionLimit,
 	}
 }

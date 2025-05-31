@@ -6,6 +6,7 @@ import (
 	"html/template"
 	"net/http"
 	"net/url"
+	"strconv"
 	"sync"
 	"time"
 
@@ -25,11 +26,8 @@ var (
 )
 
 type User struct {
-	ID           int       `json:"id"`
-	Login        string    `json:"login"`
-	PasswordHash string    `json:"-"` // Не включаем в JSON
-	CreatedAt    time.Time `json:"created_at,omitempty"`
-	UpdatedAt    time.Time `json:"updated_at,omitempty"`
+	ID    int    `json:"id"`
+	Login string `json:"login"`
 }
 
 // Отдаёт страницу входа
@@ -122,7 +120,7 @@ func Signup(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Получаем подключение к базе данных
-	db := database.GetPGConnection()
+	db := database.GetIDPPGConnection()
 	ctx := context.Background()
 
 	// Проверяем, не существует ли уже пользователь с таким логином
@@ -187,6 +185,30 @@ func Signup(w http.ResponseWriter, r *http.Request) {
 		MaxAge:   86400, // 24 часа
 	})
 
+	userJSON, err := json.Marshal(map[string]string{
+		"login": user.Login,
+		"id":    strconv.Itoa(user.ID),
+	})
+	if err != nil {
+		http.Error(w, "Failed to encode user data", http.StatusInternalServerError)
+		return
+	}
+
+	encodedValue := url.QueryEscape(string(userJSON))
+	log.Info().
+		Str("encodedValue", encodedValue).
+		Msg("Encoded user data")
+
+	http.SetCookie(w, &http.Cookie{
+		Name:     "userData",
+		Value:    encodedValue,
+		Path:     "/",
+		HttpOnly: false,
+		Secure:   false, // Только для HTTPS
+		SameSite: http.SameSiteStrictMode,
+		MaxAge:   86400, // 24 часа
+	})
+
 	// Делаем редирект на профиль
 	http.Redirect(w, r, "/user/profile", http.StatusFound)
 
@@ -222,7 +244,7 @@ func Login(w http.ResponseWriter, r *http.Request) {
 	password := r.PostForm.Get("password")
 
 	// Получаем подключение к базе данных
-	db := database.GetPGConnection()
+	db := database.GetIDPPGConnection()
 	ctx := context.Background()
 
 	// Ищем пользователя по логину
@@ -281,6 +303,30 @@ func Login(w http.ResponseWriter, r *http.Request) {
 		MaxAge:   86400, // 24 часа
 	})
 
+	userJSON, err := json.Marshal(map[string]string{
+		"login": user.Login,
+		"id":    strconv.Itoa(user.ID),
+	})
+	if err != nil {
+		http.Error(w, "Failed to encode user data", http.StatusInternalServerError)
+		return
+	}
+
+	encodedValue := url.QueryEscape(string(userJSON))
+	log.Info().
+		Str("encodedValue", encodedValue).
+		Msg("Encoded user data")
+
+	http.SetCookie(w, &http.Cookie{
+		Name:     "userData",
+		Value:    encodedValue,
+		Path:     "/",
+		HttpOnly: false,
+		Secure:   false, // Только для HTTPS
+		SameSite: http.SameSiteStrictMode,
+		MaxAge:   86400, // 24 часа
+	})
+
 	// Делаем редирект на профиль
 	http.Redirect(w, r, "/user/profile", http.StatusFound)
 	log.Info().
@@ -311,6 +357,14 @@ func Logout(w http.ResponseWriter, r *http.Request) {
 		Path:     "/",
 		Expires:  time.Now().Add(-24 * time.Hour),
 		HttpOnly: true,
+	})
+
+	http.SetCookie(w, &http.Cookie{
+		Name:     "userData",
+		Value:    "",
+		Path:     "/",
+		Expires:  time.Now().Add(-24 * time.Hour),
+		HttpOnly: false,
 	})
 
 	// Перенаправляем на страницу входа
@@ -357,7 +411,7 @@ func GetUserInfo(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Получаем информацию о пользователе из базы данных
-	db := database.GetPGConnection()
+	db := database.GetIDPPGConnection()
 	ctx := context.Background()
 
 	var user User

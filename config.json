@@ -9,17 +9,33 @@
             "key_file": "certs/server.key"
         }
     },
-    "database": {
+    "idp_database": {
         "host": "localhost",
         "port": 5432,
-        "dbname": "mydb",
-        "user": "myuser",
-        "password": "mypassword",
+        "dbname": "idp",
+        "user": "idp",
+        "password": "idp",
         "connection_limit": 10
     },
-    "redis": {
+    "idp_redis": {
         "host": "localhost",
         "port": 6379
+    },
+    "reg_database": {
+        "host": "localhost",
+        "port": 5433,
+        "dbname": "reg",
+        "user": "reg",
+        "password": "reg",
+        "connection_limit": 10
+    },
+    "counter_database": {
+        "host": "localhost",
+        "port": 5434,
+        "dbname": "counter",
+        "user": "counter",
+        "password": "counter",
+        "connection_limit": 10
     },
     "jwt": {
         "jwtSecret": "123",

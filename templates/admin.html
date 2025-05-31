@@ -79,6 +79,16 @@
             margin-top: 0;
             margin-bottom: 15px;
         }
+
+        .option-list {
+            list-style-type: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        .option-list li {
+            padding: 2px 0;
+        }
     </style>
 </head>
 
@@ -104,9 +114,9 @@
                 <h3 class="section-title">Добавить пользователей</h3>
                 <form action="/admin/users/add" method="POST">
                     <div class="form-group">
-                        <label for="userCredentials">Логин:пароль</label>
+                        <label for="usersCredentials">Логин:пароль</label>
 
-                        <textarea id="userCredentials" name="userCredentials" placeholder="user:password" rows="4"
+                        <textarea id="usersCredentials" name="users" placeholder="user1:password1" rows="4"
                             required></textarea>
                     </div>
                     <button type="submit" class="btn btn-primary">Добавить пользователя</button>
@@ -128,6 +138,18 @@
                     <div class="form-group">
                         <label for="votingOptions">Варианты ответов (каждый с новой строки)</label>
                         <textarea id="votingOptions" name="options" rows="4" required></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label for="startTime">Время начала голосования</label>
+                        <input type="datetime-local" id="startTime" name="start_time" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="auditTime">Время аудита (проверки)</label>
+                        <input type="datetime-local" id="auditTime" name="audit_time" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="endTime">Время окончания голосования</label>
+                        <input type="datetime-local" id="endTime" name="end_time" required>
                     </div>
                     <button type="submit" class="btn btn-primary">Создать голосование</button>
                 </form>
@@ -170,6 +192,11 @@
                     <tr>
                         <th>ID</th>
                         <th>Название</th>
+                        <th>Описание</th>
+                        <th>Варианты ответов</th>
+                        <th>Время начала</th>
+                        <th>Время аудита</th>
+                        <th>Время окончания</th>
                         <th>Действия</th>
                     </tr>
                 </thead>
@@ -178,8 +205,100 @@
                     <tr>
                         <td>{{.ID}}</td>
                         <td>{{.Name}}</td>
+                        <td>{{.Question}}</td>
+                        <td>
+                            <ul class="option-list">
+                                {{range .Options}}
+                                <li>{{.OptionIndex}}. {{.OptionText}}</li>
+                                {{end}}
+                            </ul>
+                        </td>
+                        <td>{{.StartTime}}</td>
+                        <td>{{.AuditTime}}</td>
+                        <td>{{.EndTime}}</td>
                         <td>
                             <form action="/admin/votings/delete/{{.ID}}" method="POST" style="display: inline;">
+                                <button type="submit" class="btn btn-danger btn-sm">Удалить</button>
+                            </form>
+                        </td>
+                    </tr>
+                    {{end}}
+                </tbody>
+            </table>
+
+            <h3 class="section-title">Список подписанных TempID</h3>
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>TempID</th>
+                        <th>Действия</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {{range .TempIDs}}
+                    <tr>
+                        <td>{{.ID}}</td>
+                        <td>{{.TempID}}</td>
+                        <td>
+                            <form action="/admin/temp-ids/delete/{{.ID}}" method="POST" style="display: inline;">
+                                <button type="submit" class="btn btn-danger btn-sm">Удалить</button>
+                            </form>
+                        </td>
+                    </tr>
+                    {{end}}
+                </tbody>
+            </table>
+
+            <h3 class="section-title">Список принятых бюллетеней</h3>
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>ID бюллетеня</th>
+                        <th>Метка</th>
+                        <th>Зашифрованный бюллетень</th>
+                        <th>Время создания</th>
+                        <th>Действия</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {{range .EncryptedVotes}}
+                    <tr>
+                        <td>{{.VotingID}}</td>
+                        <td>{{.Label}}</td>
+                        <td>.EncryptedVote</td>
+                        <td>{{.CreatedAt}}</td>
+                        <td>
+                            <form action="/admin/ballots/delete/{{.Label}}" method="POST" style="display: inline;">
+                                <button type="submit" class="btn btn-danger btn-sm">Удалить</button>
+                            </form>
+                        </td>
+                    </tr>
+                    {{end}}
+                </tbody>
+            </table>
+            <h3 class="section-title">Список полученных Merklie-корней</h3>
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>ID голосования</th>
+                        <th>Корни</th>
+                        <th>Время создания</th>
+                        <th>Время истечения</th>
+                        <th>Действия</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {{range .MerklieRoots}}
+                    <tr>
+                        <td>{{.ID}}</td>
+                        <td>{{.VotingID}}</td>
+                        <td>{{.Root}}</td>
+                        <td>{{.CreatedAt}}</td>
+                        <td>{{.ValidUntil}}</td>
+                        <td>
+                            <form action="/admin/merkli-roots/delete/{{.ID}}" method="POST" style="display: inline;">
                                 <button type="submit" class="btn btn-danger btn-sm">Удалить</button>
                             </form>
                         </td>

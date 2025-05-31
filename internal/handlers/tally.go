@@ -1,16 +1,18 @@
 package handlers
 
 import (
+	"context"
 	"encoding/json"
-	"fmt"
-	"io"
-	"net/http"
-
 	"ev/internal/config"
 	"ev/internal/crypto/bigint"
 	"ev/internal/crypto/blind_signature"
 	"ev/internal/crypto/zkp"
+	"ev/internal/database"
 	"ev/internal/logger"
+	"fmt"
+	"io"
+	"net/http"
+	"time"
 )
 
 type BallotRequestData struct {
@@ -20,6 +22,7 @@ type BallotRequestData struct {
 	ZKPProofZVec    []string `json:"zkp_proof_z_vec"`
 	ZKPProofAVec    []string `json:"zkp_proof_a_vec"`
 	Signature       string   `json:"signature"`
+	Label           string   `json:"label"`
 }
 
 type BallotResponseData struct {
@@ -59,6 +62,12 @@ func SubmitVote(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	label, err := bigint.NewBigIntFromBase64(data.Label)
+	if err != nil {
+		http.Error(w, "Error parsing label", http.StatusBadRequest)
+		log.Error().Msg("Error parsing label")
+		return
+	}
 	bs := blind_signature.BlindSignature{}
 
 	log.Info().Msg("Blind signature verification started")
@@ -70,11 +79,11 @@ func SubmitVote(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if !bs.Verify(ballot, signature, config.CryptoParams[votingIDStr].RSA.E, config.CryptoParams[votingIDStr].RSA.N) {
+	if !bs.Verify(label, signature, config.CryptoParams[votingIDStr].RSA.E, config.CryptoParams[votingIDStr].RSA.N) {
 		http.Error(w, "Error verifying signature", http.StatusBadRequest)
 		log.Error().Msg("Error verifying signature")
 		log.Error().Msg("signature: " + signature.ToBase64())
-		log.Error().Msg("ballot: " + ballot.ToBase64())
+		log.Error().Msg("ballot: " + label.ToBase64())
 		log.Error().Msg("e: " + config.CryptoParams[votingIDStr].RSA.E.ToBase64())
 		log.Error().Msg("n: " + config.CryptoParams[votingIDStr].RSA.N.ToBase64())
 		return
@@ -130,9 +139,25 @@ func SubmitVote(w http.ResponseWriter, r *http.Request) {
 
 	log.Info().Msg("ZKP format verified")
 
-	json.NewEncoder(w).Encode(BallotResponseData{
-		Status: true,
-	})
+	db := database.GetCounterPGConnection()
+	ctx := context.Background()
+
+	_, err = db.Exec(ctx,
+		"INSERT INTO encrypted_votes (voting_id, label, encrypted_vote, created_at) VALUES ($1, $2, $3, $4)",
+		data.VotingID,
+		label.ToBase64(),
+		ballot.ToBase64(),
+		time.Now(),
+	)
+	if err != nil {
+		http.Error(w, "Ошибка при добавлении бюллетеня", http.StatusInternalServerError)
+		log.Error().Msg("Error adding ballot to database")
+		return
+	}
+
+	log.Info().Msg("Ballot added to database")
+
+	json.NewEncoder(w).Encode(BallotResponseData{Status: true})
 
 	log.Info().Msg("Vote submitted successfully")
 

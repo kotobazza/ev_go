@@ -26,11 +26,12 @@
                     <input type="hidden" name="proof_a" id="proofA">
                     {{range .Options}}
                     <div class="option">
-                        <input type="radio" id="option{{.ID}}" name="vote" value="{{.ID}}">
-                        <label for="option{{.ID}}">{{.Name}}</label>
+                        <input type="radio" id="option{{.OptionIndex}}" name="vote" value="{{.OptionIndex}}">
+                        <label for="option{{.OptionIndex}}">{{.OptionText}}</label>
                     </div>
                     {{end}}
 
+                    <button type="button" class="button signBallotByRegistrator">Подписать бюллетень</button>
                     <button type="button" class="button sendVoteButton">Отправить голос</button>
                 </form>
             </div>
@@ -54,9 +55,10 @@
     <script type="module">
         import { initializeVoting } from '/static/js/voting.js';
         import { base64ToBigInt } from '/static/js/math.js';
+        import { getUserData, generateVoteVariants } from '/static/js/profile.js';
 
-        // Параметры инициализации
-        const EV_PARAMS = {
+
+        export const EV_STATE = {
             voting_id: Number('{{.Voting.ID}}'),
             options_amount: Number('{{len .Voting.Options}}'),
             pailierPublicKey: {
@@ -67,13 +69,35 @@
                 n: base64ToBigInt('{{.Crypto.RsaN}}'),
                 e: base64ToBigInt('{{.Crypto.RsaE}}')
             },
-            challenge_bits: Number('{{.Crypto.ChallengeBits}}')
-        };
+            challenge_bits: Number('{{.Crypto.ChallengeBits}}'),
+            base: BigInt('{{.Crypto.Base}}'),
+
+
+
+            zkp_proof: null,
+            vote_variants: generateVoteVariants(EV_STATE.base, EV_STATE.options_amount, EV_STATE.pailierPublicKey),
+            user: getUserData(),
+            enc_vote: null,
+            label: null,
+            label_sig: null,
+
+
+
+        }
+
+
+        console.log("EV_STATE: ", EV_STATE);
 
         // Инициализация после загрузки DOM
         document.addEventListener('DOMContentLoaded', () => {
-            initializeVoting(EV_PARAMS);
+            initializeVoting(EV_STATE);
         });
+
+
+
+
+
+
     </script>
 </body>
 

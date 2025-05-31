@@ -1,27 +1,57 @@
 services:
-  postgres:
+  IDP_postgres:
     image: postgres:16
-    container_name: postgres_db
+    container_name: postgres_idp
     restart: always
     environment:
-      POSTGRES_DB: mydb
-      POSTGRES_USER: myuser
-      POSTGRES_PASSWORD: mypassword
+      POSTGRES_DB: idp
+      POSTGRES_USER: idp
+      POSTGRES_PASSWORD: idp
     volumes:
-      - ./sql/init.sql:/docker-entrypoint-initdb.d/init.sql
+      - ./sql/init_idp.sql:/docker-entrypoint-initdb.d/init_idp.sql 
     ports:
       - "5432:5432"
     tmpfs:
-      - /var/lib/postgresql/data
+      - /var/lib/postgresql/data  
 
-  redis:
+  IDP_redis:
     image: redis:7
-    container_name: redis_cache
+    container_name: redis_idp
     restart: always
     ports:
       - "6379:6379"
     tmpfs:
+      - /data  
+
+  REG_postgres:
+    image: postgres:16
+    container_name: postgres_reg
+    restart: always
+    environment:
+      POSTGRES_DB: reg
+      POSTGRES_USER: reg
+      POSTGRES_PASSWORD: reg
+    volumes:
+      - ./sql/init_reg.sql:/docker-entrypoint-initdb.d/init_reg.sql
+    ports:
+      - "5433:5432"
+    tmpfs:
       - /var/lib/postgresql/data
 
-volumes:
-  pgdata:
+  COUNTER_postgres:
+    image: postgres:16
+    container_name: postgres_counter
+    restart: always
+    environment:
+      POSTGRES_DB: counter
+      POSTGRES_USER: counter
+      POSTGRES_PASSWORD: counter
+    volumes:
+      - ./sql/init_counter.sql:/docker-entrypoint-initdb.d/init_counter.sql
+    ports:
+      - "5434:5432"
+    tmpfs:
+      - /var/lib/postgresql/data
+
+  
+

@@ -11,13 +11,17 @@ import (
 )
 
 var (
-	pgPool *pgxpool.Pool
-	pgOnce sync.Once
+	idpPgPool     *pgxpool.Pool
+	regPgPool     *pgxpool.Pool
+	counterPgPool *pgxpool.Pool
+	idpOnce       sync.Once
+	regOnce       sync.Once
+	counterOnce   sync.Once
 )
 
-func GetPGConnection() *pgxpool.Pool {
-	pgOnce.Do(func() {
-		dbConfig := getDefaultDBConfig()
+func GetIDPPGConnection() *pgxpool.Pool {
+	idpOnce.Do(func() {
+		dbConfig := getIDPDBConfig()
 		if dbConfig == nil {
 			panic("Default database configuration not found")
 		}
@@ -42,16 +46,98 @@ func GetPGConnection() *pgxpool.Pool {
 			panic(fmt.Sprintf("Unable to create connection pool: %v", err))
 		}
 
-		pgPool = pool
+		idpPgPool = pool
 	})
 	log := logger.GetLogger()
 	log.Info().Msg("Successfully created PostgreSQL connection pool")
 
-	return pgPool
+	return idpPgPool
 }
 
-func ClosePGConnection() {
-	if pgPool != nil {
-		pgPool.Close()
+func CloseIDPPGConnection() {
+	if idpPgPool != nil {
+		idpPgPool.Close()
+	}
+}
+
+func GetREGPGConnection() *pgxpool.Pool {
+	regOnce.Do(func() {
+		dbConfig := getREGDBConfig()
+		if dbConfig == nil {
+			panic("Default database configuration not found")
+		}
+
+		connString := fmt.Sprintf("postgres://%s:%s@%s:%d/%s?sslmode=disable",
+			dbConfig.User,
+			dbConfig.Password,
+			dbConfig.Host,
+			dbConfig.Port,
+			dbConfig.DBName,
+		)
+
+		poolConfig, err := pgxpool.ParseConfig(connString)
+		if err != nil {
+			panic(fmt.Sprintf("Unable to parse pool config: %v", err))
+		}
+
+		poolConfig.MaxConns = int32(dbConfig.ConnectionLimit)
+
+		pool, err := pgxpool.NewWithConfig(context.Background(), poolConfig)
+		if err != nil {
+			panic(fmt.Sprintf("Unable to create connection pool: %v", err))
+		}
+
+		regPgPool = pool
+	})
+	log := logger.GetLogger()
+	log.Info().Msg("Successfully created PostgreSQL connection pool")
+
+	return regPgPool
+}
+
+func CloseREGPGConnection() {
+	if regPgPool != nil {
+		regPgPool.Close()
+	}
+}
+
+func GetCounterPGConnection() *pgxpool.Pool {
+	counterOnce.Do(func() {
+		dbConfig := getCounterDBConfig()
+		if dbConfig == nil {
+			panic("Default database configuration not found")
+		}
+
+		connString := fmt.Sprintf("postgres://%s:%s@%s:%d/%s?sslmode=disable",
+			dbConfig.User,
+			dbConfig.Password,
+			dbConfig.Host,
+			dbConfig.Port,
+			dbConfig.DBName,
+		)
+
+		poolConfig, err := pgxpool.ParseConfig(connString)
+		if err != nil {
+			panic(fmt.Sprintf("Unable to parse pool config: %v", err))
+		}
+
+		poolConfig.MaxConns = int32(dbConfig.ConnectionLimit)
+
+		pool, err := pgxpool.NewWithConfig(context.Background(), poolConfig)
+		if err != nil {
+			panic(fmt.Sprintf("Unable to create connection pool: %v", err))
+		}
+
+		counterPgPool = pool
+	})
+	log := logger.GetLogger()
+	log.Info().Msg("Successfully created PostgreSQL connection pool")
+
+	return counterPgPool
+}
+
+func CloseCounterPGConnection() {
+	if counterPgPool != nil {
+		counterPgPool.Close()
 	}
 }
