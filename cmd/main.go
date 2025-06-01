@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"ev/internal/config"
 	"ev/internal/database"
 	"ev/internal/handlers"
@@ -28,13 +27,13 @@ func main() {
 	}
 
 	// Инициализируем подключения к базам данных
-	pgPool := database.GetIDPPGConnection()
+	_ = database.GetIDPPGConnection()
 	defer database.CloseIDPPGConnection()
 
-	pgPoolREG := database.GetREGPGConnection()
+	_ = database.GetREGPGConnection()
 	defer database.CloseREGPGConnection()
 
-	pgPoolCounter := database.GetCounterPGConnection()
+	_ = database.GetCounterPGConnection()
 	defer database.CloseCounterPGConnection()
 
 	_ = database.GetIDPRedisConnection()
@@ -42,22 +41,6 @@ func main() {
 
 	_ = database.GetQueueRedisConnection()
 	defer database.CloseQueueRedisConnection()
-
-	// Проверяем подключения
-	if err := pgPool.Ping(context.Background()); err != nil {
-		log.Fatal().Err(err).Msg("Failed to ping IDP PostgreSQL")
-		os.Exit(1)
-	}
-
-	if err := pgPoolREG.Ping(context.Background()); err != nil {
-		log.Fatal().Err(err).Msg("Failed to ping REG PostgreSQL")
-		os.Exit(1)
-	}
-
-	if err := pgPoolCounter.Ping(context.Background()); err != nil {
-		log.Fatal().Err(err).Msg("Failed to ping Counter PostgreSQL")
-		os.Exit(1)
-	}
 
 	go worker.RunBackgroundResultPublication(60 * time.Second)
 	log.Info().Msg("Background result publication started")

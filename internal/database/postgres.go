@@ -3,6 +3,7 @@ package database
 import (
 	"context"
 	"fmt"
+	"os"
 	"sync"
 
 	"ev/internal/logger"
@@ -51,6 +52,11 @@ func GetIDPPGConnection() *pgxpool.Pool {
 	log := logger.GetLogger()
 	log.Info().Msg("Successfully created PostgreSQL connection pool")
 
+	if err := idpPgPool.Ping(context.Background()); err != nil {
+		log.Fatal().Err(err).Msg("Failed to ping IDP PostgreSQL")
+		os.Exit(1)
+	}
+
 	return idpPgPool
 }
 
@@ -92,6 +98,11 @@ func GetREGPGConnection() *pgxpool.Pool {
 	log := logger.GetLogger()
 	log.Info().Msg("Successfully created PostgreSQL connection pool")
 
+	if err := regPgPool.Ping(context.Background()); err != nil {
+		log.Fatal().Err(err).Msg("Failed to ping REG PostgreSQL")
+		os.Exit(1)
+	}
+
 	return regPgPool
 }
 
@@ -132,6 +143,11 @@ func GetCounterPGConnection() *pgxpool.Pool {
 	})
 	log := logger.GetLogger()
 	log.Info().Msg("Successfully created PostgreSQL connection pool")
+
+	if err := counterPgPool.Ping(context.Background()); err != nil {
+		log.Fatal().Err(err).Msg("Failed to ping Counter PostgreSQL")
+		os.Exit(1)
+	}
 
 	return counterPgPool
 }
