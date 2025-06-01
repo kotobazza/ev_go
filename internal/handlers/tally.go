@@ -432,6 +432,7 @@ type ResultsPageData struct {
 		VotingID      int
 		MerklieRootID int
 		ResultedCount map[string]int64
+		CryptedResult string
 		CreatedAt     time.Time
 	}
 	MerklieRoot          models.MerklieRoot
@@ -496,6 +497,7 @@ func ShowResultsPage(w http.ResponseWriter, r *http.Request, votingID string) {
 		VotingID      int
 		MerklieRootID int
 		ResultedCount map[string]int64
+		CryptedResult string
 		CreatedAt     time.Time
 	}{
 		ResultedCount: make(map[string]int64),
@@ -506,7 +508,7 @@ func ShowResultsPage(w http.ResponseWriter, r *http.Request, votingID string) {
 	var jsonedResultedCount string
 
 	if rows.Next() {
-		err = rows.Scan(&result.ID, &result.VotingID, &result.MerklieRootID, &jsonedResultedCount, &result.CreatedAt)
+		err = rows.Scan(&result.ID, &result.VotingID, &result.MerklieRootID, &result.CryptedResult, &jsonedResultedCount, &result.CreatedAt)
 		if err != nil {
 			log.Error().Err(err).Msg("Error scanning results")
 		}
@@ -725,9 +727,10 @@ func CalculateVoting(w http.ResponseWriter, r *http.Request, votingID string) {
 		return
 	}
 
-	_, err = tx.Exec(ctx, "INSERT INTO results (voting_id, corresponds_to_merklie_root, resulted_count, created_at) VALUES ($1, $2, $3, $4)",
+	_, err = tx.Exec(ctx, "INSERT INTO results (voting_id, corresponds_to_merklie_root, crypted_result, resulted_count, created_at) VALUES ($1, $2, $3, $4, $5)",
 		votingID,
 		insertedID,
+		sum.ToBase64(),
 		string(jsonedResult),
 		currentTime,
 	)

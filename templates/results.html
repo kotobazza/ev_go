@@ -48,7 +48,8 @@
         }
 
         .merkle-root,
-        .vote {
+        .vote,
+        .result {
             background-color: white;
             padding: 15px;
             margin-bottom: 15px;
@@ -69,6 +70,9 @@
 
         .value {
             color: #333;
+            word-wrap: break-word;
+            white-space: pre-wrap;
+            overflow: hidden;
         }
 
         .timestamp {
@@ -82,6 +86,29 @@
 <body>
     <div class="container">
         <h1>Результаты голосования</h1>
+
+        {{if .Result}}
+        <div class="section">
+            <h2>Результаты</h2>
+            <div class="result">
+                <div class="label">Результаты:</div>
+                <div class="value">
+
+                    <ul>
+                        {{range $key, $value := .Result.ResultedCount}}
+                        <li class="value">{{$key}} - {{$value}} (голос)</li>
+                        {{end}}
+                    </ul>
+
+
+                </div>
+                <div class="label">Результирующая сумма:</div>
+                <div class="value">{{.Result.CryptedResult}}</div>
+                <div class="label">Создан:</div>
+                <div class="value">{{.Result.CreatedAt}}</div>
+            </div>
+        </div>
+        {{end}}
 
         <div class="voting-info">
             <strong>ID голосования:</strong> {{.Voting.ID}} <br />
@@ -117,23 +144,7 @@
             {{end}}
         </div>
 
-        {{if .Result}}
-        <div class="section">
-            <h2>Результаты</h2>
-            <div class="result">
-                <div class="label">Корень Меркла:</div>
-                <div class="value">{{.Result.MerklieRootID}}</div>
-                <div class="label">Результирующая сумма:</div>
-                <div class="value">
-                    {{range $key, $value := .Result.ResultedCount}}
-                    <div class="value">{{$key}} - {{$value}}</div>
-                    {{end}}
-                </div>
-                <div class="label">Создан:</div>
-                <div class="value">{{.Result.CreatedAt}}</div>
-            </div>
-        </div>
-        {{end}}
+
 </body>
 
 </html>
