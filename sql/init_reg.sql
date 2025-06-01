@@ -2,6 +2,7 @@ CREATE TABLE IF NOT EXISTS votings (
     id SERIAL PRIMARY KEY,
     name VARCHAR(100) NOT NULL,
     question TEXT NOT NULL,
+    state INT NOT NULL,
     start_time TIMESTAMP NOT NULL,
     audit_time TIMESTAMP NOT NULL,
     end_time TIMESTAMP NOT NULL

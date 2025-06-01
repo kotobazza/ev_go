@@ -3,7 +3,7 @@ package worker
 import (
 	"context"
 	"ev/internal/config"
-	merkle "ev/internal/crypto/merklie"
+	"ev/internal/crypto/merklie"
 	"ev/internal/database"
 	"ev/internal/models"
 	"fmt"
@@ -60,7 +60,7 @@ func ReloadResults() {
 		}
 
 		// Создаем новое дерево Merkle для текущего голосования
-		merkleTree := merkle.NewMerkleTree()
+		merkleTree := merklie.NewMerkleTree()
 
 		// Добавляем голоса в дерево
 		for _, vote := range votes {

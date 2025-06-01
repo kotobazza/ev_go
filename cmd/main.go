@@ -62,6 +62,13 @@ func main() {
 	mux.Handle("/auth/user-info", middleware.AuthMiddleware(http.HandlerFunc(handlers.GetUserInfo)))
 	mux.Handle("/auth/temp-id", middleware.AuthMiddleware(http.HandlerFunc(handlers.GetTempID)))
 
+	mux.Handle("/tally/calculate-results/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Получаем ID из URL
+		votingID := strings.TrimPrefix(r.URL.Path, "/tally/calculate-results/")
+		// Передаем управление основному обработчику
+		handlers.CalculateVoting(w, r, votingID)
+	}))
+
 	mux.Handle("/voting/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Получаем ID из URL
 		votingID := strings.TrimPrefix(r.URL.Path, "/voting/")
@@ -81,6 +88,14 @@ func main() {
 		votingID := strings.TrimPrefix(r.URL.Path, "/admin/votings/delete/")
 		// Передаем управление основному обработчику
 		handlers.DeleteVoting(w, r, votingID)
+
+	})))
+
+	mux.Handle("/admin/votings/next-state/", middleware.AuthMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Получаем ID из URL
+		votingID := strings.TrimPrefix(r.URL.Path, "/admin/votings/next-state/")
+		// Передаем управление основному обработчику
+		handlers.NextState(w, r, votingID)
 
 	})))
 	mux.Handle("/admin/users/delete/", middleware.AuthMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

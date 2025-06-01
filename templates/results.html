@@ -94,13 +94,11 @@
 
         <div class="section">
             <h2>Корень Меркла</h2>
-            {{range .MerklieRoots}}
             <div class="merkle-root">
                 <div class="label">Значение корня:</div>
-                <div class="value">{{.RootValue}}</div>
-                <div class="timestamp">Создан: {{.CreatedAt}}</div>
+                <div class="value">{{.MerklieRoot.RootValue}}</div>
+                <div class="timestamp">Создан: {{.MerklieRoot.CreatedAt}}</div>
             </div>
-            {{end}}
         </div>
 
         <div class="section">
@@ -124,13 +122,15 @@
             <h2>Результаты</h2>
             <div class="result">
                 <div class="label">Корень Меркла:</div>
-                <div class="value">{{.Result.MerkleRoot}}</div>
-                <div class="label">Результирующаяя сумма:</div>
-                <div class="value">{{.Result.ResultedCount}}</div>
+                <div class="value">{{.Result.MerklieRootID}}</div>
+                <div class="label">Результирующая сумма:</div>
+                <div class="value">
+                    {{range $key, $value := .Result.ResultedCount}}
+                    <div class="value">{{$key}} - {{$value}}</div>
+                    {{end}}
+                </div>
                 <div class="label">Создан:</div>
                 <div class="value">{{.Result.CreatedAt}}</div>
-                <div class="label">ZKP доказательство подсчета:</div>
-                <div class="value">{{.Result.ZkpProof}}</div>
             </div>
         </div>
         {{end}}

@@ -194,6 +194,7 @@
                         <th>Название</th>
                         <th>Описание</th>
                         <th>Варианты ответов</th>
+                        <th>Состояние</th>
                         <th>Время начала</th>
                         <th>Время аудита</th>
                         <th>Время окончания</th>
@@ -213,12 +214,17 @@
                                 {{end}}
                             </ul>
                         </td>
+                        <td>{{.State}}</td>
                         <td>{{.StartTime}}</td>
                         <td>{{.AuditTime}}</td>
                         <td>{{.EndTime}}</td>
                         <td>
                             <form action="/admin/votings/delete/{{.ID}}" method="POST" style="display: inline;">
                                 <button type="submit" class="btn btn-danger btn-sm">Удалить</button>
+                            </form>
+                            <form action="/admin/votings/next-state/{{.ID}}" method="POST" style="display: inline;">
+                                <button type="submit" class="btn btn-primary btn-sm">Передвинуть на следующий
+                                    этап</button>
                             </form>
                         </td>
                     </tr>

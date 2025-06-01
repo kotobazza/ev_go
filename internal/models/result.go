@@ -1,10 +1,11 @@
 package models
 
+import "time"
+
 type Result struct {
 	ID            int
 	VotingID      int
-	MerkleRoot    string
-	ResultedCount int
-	CreatedAt     string
-	ZkpProof      string
+	MerklieRootID int
+	ResultedCount string
+	CreatedAt     time.Time
 }

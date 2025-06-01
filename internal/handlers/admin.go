@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"ev/internal/config"
 	"ev/internal/database"
 	"ev/internal/handlers/render"
 	"ev/internal/logger"
@@ -55,7 +56,7 @@ func ShowAdminPage(w http.ResponseWriter, r *http.Request) {
 	regCtx := context.Background()
 
 	var votings []models.Voting
-	rows, err = regDB.Query(regCtx, "SELECT id, name, question, start_time, audit_time, end_time FROM votings")
+	rows, err = regDB.Query(regCtx, "SELECT id, name, question, state, start_time, audit_time, end_time FROM votings")
 	if err != nil {
 		http.Error(w, "Запрос таблицы голосований не удался: "+err.Error(), http.StatusNotFound)
 		return
@@ -67,7 +68,7 @@ func ShowAdminPage(w http.ResponseWriter, r *http.Request) {
 
 	for rows.Next() {
 		var voting models.Voting
-		err = rows.Scan(&voting.ID, &voting.Name, &voting.Question, &voting.StartTime, &voting.AuditTime, &voting.EndTime)
+		err = rows.Scan(&voting.ID, &voting.Name, &voting.Question, &voting.State, &voting.StartTime, &voting.AuditTime, &voting.EndTime)
 		if err != nil {
 			http.Error(w, "Перенос данных из таблицы голосований не удался: "+err.Error(), http.StatusNotFound)
 			return
@@ -304,8 +305,8 @@ func AddNewVoting(w http.ResponseWriter, r *http.Request) {
 	// Создаем новое голосование
 	var votingID int
 	err = tx.QueryRow(ctx,
-		"INSERT INTO votings (name, question, start_time, audit_time, end_time) VALUES ($1, $2, $3, $4, $5) RETURNING id",
-		name, description, startTime, auditTime, endTime,
+		"INSERT INTO votings (name, question, state, start_time, audit_time, end_time) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id",
+		name, description, 0, startTime, auditTime, endTime,
 	).Scan(&votingID)
 	if err != nil {
 		http.Error(w, "Ошибка при создании голосования", http.StatusInternalServerError)
@@ -345,8 +346,8 @@ func AddNewVoting(w http.ResponseWriter, r *http.Request) {
 
 	// Создаем новое голосование
 	err = tx.QueryRow(ctx,
-		"INSERT INTO votings (name, question, start_time, audit_time, end_time) VALUES ($1, $2, $3, $4, $5) RETURNING id",
-		name, description, startTime, auditTime, endTime,
+		"INSERT INTO votings (name, question, state, start_time, audit_time, end_time) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id",
+		name, description, 0, startTime, auditTime, endTime,
 	).Scan(&votingID)
 	if err != nil {
 		http.Error(w, "Ошибка при создании голосования", http.StatusInternalServerError)
@@ -553,4 +554,84 @@ func DeleteTempID(w http.ResponseWriter, r *http.Request, tempID string) {
 
 	// Перенаправляем на страницу администратора
 	http.Redirect(w, r, "/admin", http.StatusSeeOther)
+}
+
+func NextState(w http.ResponseWriter, r *http.Request, votingID string) {
+	log := logger.GetLogger()
+	log.Info().Msg("requested next state")
+
+	// Проверяем метод запроса
+	if r.Method != http.MethodPost {
+		http.Error(w, "Метод не поддерживается", http.StatusMethodNotAllowed)
+		return
+	}
+
+	regdb := database.GetREGPGConnection()
+	counterdb := database.GetCounterPGConnection()
+	ctx := context.Background()
+
+	var state int
+
+	err := regdb.QueryRow(ctx, "SELECT state FROM votings WHERE id = $1", votingID).Scan(&state)
+	if err != nil {
+		log.Error().Err(err).Msg("error getting state")
+		http.Error(w, "Ошибка при получении состояния голосования", http.StatusInternalServerError)
+		return
+	}
+
+	state++
+
+	if state == 2 {
+		CalculateVotingResults(votingID)
+	}
+
+	if state == 4 {
+		state = 0
+	}
+
+	_, err = regdb.Exec(ctx, "UPDATE votings SET state = $1 WHERE id = $2", state, votingID)
+	if err != nil {
+		log.Error().Err(err).Msg("error updating state")
+		http.Error(w, "Ошибка при обновлении состояния голосования", http.StatusInternalServerError)
+		return
+	}
+
+	_, err = counterdb.Exec(ctx, "UPDATE votings SET state = $1 WHERE id = $2", state, votingID)
+	if err != nil {
+		log.Error().Err(err).Msg("error updating state")
+		http.Error(w, "Ошибка при обновлении состояния голосования", http.StatusInternalServerError)
+		return
+	}
+
+	http.Redirect(w, r, "/admin", http.StatusSeeOther)
+}
+
+func CalculateVotingResults(votingID string) {
+	log := logger.GetLogger()
+	log.Info().Msg("requested calculate voting results")
+
+	url := "http://" + config.Config.Server.Host + ":" + strconv.Itoa(config.Config.Server.Port) + "/tally/calculate-results/" + votingID
+
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		log.Error().Err(err).Msg("error creating request")
+		return
+	}
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		log.Error().Err(err).Msg("error sending request")
+		return
+	}
+	defer resp.Body.Close()
+
+	// Проверяем статус ответа
+	if resp.StatusCode != http.StatusOK {
+		log.Error().Msg("error calculating voting results")
+		return
+	}
+
+	log.Info().Msg("voting results calculated")
+
 }

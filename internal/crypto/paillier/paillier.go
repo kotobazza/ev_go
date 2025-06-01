@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"ev/internal/crypto/bigint"
+	"strconv"
 	"strings"
 )
 
@@ -84,4 +85,37 @@ func ComputeDigest(values []*bigint.BigInt) *bigint.BigInt {
 
 	result, _ := bigint.NewBigIntFromString(hashHex)
 	return result
+}
+
+func CountSum(values []*bigint.BigInt, n *bigint.BigInt) *bigint.BigInt {
+	sum := bigint.NewBigIntFromInt(1)
+	nn := n.Mul(n)
+
+	for _, v := range values {
+		sum = sum.Mul(v).Mod(nn)
+	}
+	return sum
+}
+
+func SplitAndConvert(binaryString string, chunkSize int) ([]int64, error) {
+	var numbers []int64
+	n := len(binaryString)
+
+	for i := 0; i < n; i += chunkSize {
+		end := i + chunkSize
+		if end > n {
+			end = n
+		}
+
+		chunk := binaryString[i:end]
+		num, err := strconv.ParseInt(chunk, 2, 64) // Если строка двоичная
+		// Если строка десятичная, используйте:
+		// num, err := strconv.ParseInt(chunk, 10, 64)
+		if err != nil {
+			return nil, err
+		}
+		numbers = append(numbers, num)
+	}
+
+	return numbers, nil
 }

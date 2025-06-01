@@ -30,7 +30,7 @@ func ShowProfilePage(w http.ResponseWriter, r *http.Request) {
 	ctx := context.Background()
 
 	var votings []models.Voting
-	rows, err := db.Query(ctx, "SELECT id, name, question FROM votings")
+	rows, err := db.Query(ctx, "SELECT id, name, question FROM votings WHERE state <> 0")
 	if err != nil {
 		http.Error(w, "Голосование не найдено", http.StatusNotFound)
 		return
@@ -88,7 +88,7 @@ func ShowVotingPage(w http.ResponseWriter, r *http.Request, votingID string) {
 	err := db.QueryRow(ctx,
 		`SELECT v.id, v.name, v.question
 		FROM votings v
-		WHERE v.id = $1`,
+		WHERE v.id = $1 AND state <> 0`,
 		votingID,
 	).Scan(
 		&voting.ID, &voting.Name, &voting.Question,
@@ -255,7 +255,38 @@ func RegisterVote(w http.ResponseWriter, r *http.Request) {
 	db := database.GetREGPGConnection()
 	ctx := context.Background()
 
-	rows, err := db.Query(ctx,
+	rows, err := db.Query(ctx, "SELECT state FROM votings WHERE id = $1 AND state = 1", data.VotingID)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		err = json.NewEncoder(w).Encode(ResponseData{
+			Signature: "",
+			Success:   false,
+			Message:   "Ошибка при проверке состояния голосования",
+		})
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			log.Error().Err(err).Msg("Error sending response")
+		}
+		return
+	}
+
+	if !rows.Next() {
+		w.WriteHeader(http.StatusBadRequest)
+		err = json.NewEncoder(w).Encode(ResponseData{
+			Signature: "",
+			Success:   false,
+			Message:   "Принятие голосов завершено или не началось",
+		})
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			log.Error().Err(err).Msg("Error sending response")
+		}
+		return
+	}
+
+	defer rows.Close()
+
+	rows, err = db.Query(ctx,
 		"SELECT id FROM tempIDs WHERE temp_id = $1 AND voting_id = $2",
 		tempID,
 		data.VotingID,
