@@ -76,19 +76,50 @@ func ReloadResults() {
 			Int("total_votes", len(votes)).
 			Msg("Merkle tree root calculated")
 
-		// Сохраняем корень в базу данных
-		_, err := db.Exec(ctx, "INSERT INTO merklie_roots (voting_id, root_value, created_at) VALUES ($1, $2, $3)", votingID, rootHash, time.Now())
+		// Начинаем транзакцию
+		tx, err := db.Begin(ctx)
 		if err != nil {
 			log.Error().
 				Err(err).
 				Str("voting_id", votingID).
-				Msg("Failed to save merkle root")
+				Msg("Failed to start transaction")
+			continue
 		}
 
-		db.Exec(ctx, "TRUNCATE TABLE public_encrypted_votes")
+		currentTime := time.Now()
+
+		// Сохраняем корень в базу данных
+		_, err = tx.Exec(ctx, "INSERT INTO merklie_roots (voting_id, root_value, created_at) VALUES ($1, $2, $3)", votingID, rootHash, currentTime)
+		if err != nil {
+			tx.Rollback(ctx)
+			log.Error().
+				Err(err).
+				Str("voting_id", votingID).
+				Msg("Failed to save merkle root")
+			continue
+		}
 
 		for _, vote := range votes {
-			db.Exec(ctx, "INSERT INTO public_encrypted_votes (voting_id, label, encrypted_vote, created_at, moved_into_at) VALUES ($1, $2, $3, $4, $5)", vote.VotingID, vote.Label, vote.EncryptedVote, vote.CreatedAt, time.Now())
+			_, err = tx.Exec(ctx, "INSERT INTO public_encrypted_votes (voting_id, label, encrypted_vote, created_at, moved_into_at) VALUES ($1, $2, $3, $4, $5)",
+				vote.VotingID, vote.Label, vote.EncryptedVote, vote.CreatedAt, currentTime)
+			if err != nil {
+				tx.Rollback(ctx)
+				log.Error().
+					Err(err).
+					Str("voting_id", votingID).
+					Msg("Failed to insert vote into public_encrypted_votes")
+				continue
+			}
+		}
+
+		// Фиксируем транзакцию
+		if err = tx.Commit(ctx); err != nil {
+			log.Error().
+				Err(err).
+				Str("voting_id", votingID).
+				Msg("Failed to commit transaction")
+			tx.Rollback(ctx)
+			continue
 		}
 	}
 }

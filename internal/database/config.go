@@ -55,3 +55,10 @@ func getCounterDBConfig() *PostgresConfig {
 		ConnectionLimit: config.Config.CounterDatabase.ConnectionLimit,
 	}
 }
+
+func getQueueRedisConfig() *RedisConfig {
+	return &RedisConfig{
+		Host: config.Config.QueueRedis.Host,
+		Port: config.Config.QueueRedis.Port,
+	}
+}

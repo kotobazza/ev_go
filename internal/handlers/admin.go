@@ -332,6 +332,47 @@ func AddNewVoting(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Получаем соединение с БД
+	db = database.GetCounterPGConnection()
+
+	// Начинаем транзакцию
+	tx, err = db.Begin(ctx)
+	if err != nil {
+		http.Error(w, "Ошибка при создании транзакции", http.StatusInternalServerError)
+		return
+	}
+	defer tx.Rollback(ctx)
+
+	// Создаем новое голосование
+	err = tx.QueryRow(ctx,
+		"INSERT INTO votings (name, question, start_time, audit_time, end_time) VALUES ($1, $2, $3, $4, $5) RETURNING id",
+		name, description, startTime, auditTime, endTime,
+	).Scan(&votingID)
+	if err != nil {
+		http.Error(w, "Ошибка при создании голосования", http.StatusInternalServerError)
+		return
+	}
+
+	// Добавляем варианты ответов
+	for optionIndex, optionName := range cleanOptions {
+		_, err = tx.Exec(ctx,
+			"INSERT INTO voting_options (voting_id, option_index, option_text) VALUES ($1, $2, $3)",
+			votingID, optionIndex, optionName,
+		)
+		if err != nil {
+			log.Error().Err(err).Msg("error adding options")
+			http.Error(w, "Ошибка при добавлении вариантов ответа", http.StatusInternalServerError)
+			return
+		}
+	}
+
+	// Подтверждаем транзакцию
+	err = tx.Commit(ctx)
+	if err != nil {
+		http.Error(w, "Ошибка при сохранении голосования", http.StatusInternalServerError)
+		return
+	}
+
 	// Перенаправляем на страницу администратора
 	http.Redirect(w, r, "/admin", http.StatusSeeOther)
 }
@@ -405,19 +446,19 @@ func DeleteVoting(w http.ResponseWriter, r *http.Request, votingID string) {
 	}
 	defer regTx.Rollback(ctx)
 
-	// Удаляем связанные опции голосования
-	_, err = regTx.Exec(ctx, "DELETE FROM voting_options WHERE voting_id = $1", votingID)
-	if err != nil {
-		log.Error().Err(err).Msg("error deleting voting options")
-		http.Error(w, "Ошибка при удалении вариантов ответа", http.StatusInternalServerError)
-		return
-	}
-
 	// Удаляем временные ID, связанные с голосованием
 	_, err = regTx.Exec(ctx, "DELETE FROM tempIDs WHERE id IN (SELECT id FROM tempIDs WHERE temp_id LIKE $1 || '%')", votingID)
 	if err != nil {
 		log.Error().Err(err).Msg("error deleting temp IDs")
 		http.Error(w, "Ошибка при удалении временных ID", http.StatusInternalServerError)
+		return
+	}
+
+	// Удаляем связанные опции голосования
+	_, err = regTx.Exec(ctx, "DELETE FROM voting_options WHERE voting_id = $1", votingID)
+	if err != nil {
+		log.Error().Err(err).Msg("error deleting voting options")
+		http.Error(w, "Ошибка при удалении вариантов ответа", http.StatusInternalServerError)
 		return
 	}
 
@@ -458,6 +499,22 @@ func DeleteVoting(w http.ResponseWriter, r *http.Request, votingID string) {
 	if err != nil {
 		log.Error().Err(err).Msg("error deleting merklie roots")
 		http.Error(w, "Ошибка при удалении корней Меркла", http.StatusInternalServerError)
+		return
+	}
+
+	// Удаляем связанные опции голосования
+	_, err = counterTx.Exec(ctx, "DELETE FROM voting_options WHERE voting_id = $1", votingID)
+	if err != nil {
+		log.Error().Err(err).Msg("error deleting voting options")
+		http.Error(w, "Ошибка при удалении вариантов ответа", http.StatusInternalServerError)
+		return
+	}
+
+	// Удаляем само голосование
+	_, err = counterTx.Exec(ctx, "DELETE FROM votings WHERE id = $1", votingID)
+	if err != nil {
+		log.Error().Err(err).Msg("error deleting voting")
+		http.Error(w, "Ошибка при удалении голосования", http.StatusInternalServerError)
 		return
 	}
 

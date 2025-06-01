@@ -40,6 +40,9 @@ func main() {
 	_ = database.GetIDPRedisConnection()
 	defer database.CloseIDPRedisConnection()
 
+	_ = database.GetQueueRedisConnection()
+	defer database.CloseQueueRedisConnection()
+
 	// Проверяем подключения
 	if err := pgPool.Ping(context.Background()); err != nil {
 		log.Fatal().Err(err).Msg("Failed to ping IDP PostgreSQL")

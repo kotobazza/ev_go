@@ -37,6 +37,10 @@
         "password": "counter",
         "connection_limit": 10
     },
+    "queue_redis": {
+        "host": "localhost",
+        "port": 6380
+    },
     "jwt": {
         "jwtSecret": "123",
         "jwtIssuer": "ev",

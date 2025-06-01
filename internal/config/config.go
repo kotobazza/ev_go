@@ -49,6 +49,10 @@ type AppConfig struct {
 		Password        string `json:"password"`
 		ConnectionLimit int    `json:"connection_limit"`
 	} `json:"counter_database"`
+	QueueRedis struct {
+		Host string `json:"host"`
+		Port int    `json:"port"`
+	} `json:"queue_redis"`
 	JWT struct {
 		Secret               string `json:"jwtSecret"`
 		Issuer               string `json:"jwtIssuer"`
@@ -71,10 +75,6 @@ type VotingCryptoConfig struct {
 	ChallengeBits      uint   `json:"challenge_bits"`
 	Base               uint   `json:"base"`
 	ReVotingMultiplier uint64 `json:"re_voting_multiplier"`
-	BlockCiphering     struct {
-		Key []byte `json:"key"`
-		IV  []byte `json:"iv"`
-	} `json:"block_ciphering"`
 }
 
 // CryptoConfig теперь хранит мапу конфигураций голосований
