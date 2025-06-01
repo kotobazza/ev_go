@@ -301,15 +301,21 @@ export async function initializeVoting(params) {
 
             // Генерируем QR-код
             const labelBase64 = bigIntToBase64(EV_STATE.label);
+
+
+            const link = `/voting/${EV_STATE.EV_STATIC_PARAMS.voting_id}/tracking/${labelBase64}`
+
             try {
                 const canvas = document.getElementById('qrcode');
-                QRCode.toCanvas(canvas, labelBase64, function (error) {
+                QRCode.toCanvas(canvas, link, function (error) {
                     if (error) console.error(error);
                     else console.log('QR-код сгенерирован!');
                 });
             } catch (error) {
                 console.error('Ошибка генерации QR-кода:', error);
             }
+
+
 
             // Показываем лейбл
             document.querySelector('.label-new').textContent = labelBase64;
@@ -318,8 +324,15 @@ export async function initializeVoting(params) {
             // Генерируем куку с Label и Nonce как подтверждение голосования
             console.log("labelBase64: ", labelBase64);
             console.log("nonceBase64: ", nonceBase64);
+
+
+            const linkElement = document.querySelector('.label-new').closest('.ballot-label').querySelector('a');
+            linkElement.href = link;
+
+
             document.cookie = `oldLabel_${EV_STATE.EV_STATIC_PARAMS.voting_id}=${labelBase64}; path=/; max-age=86400; samesite=strict`;
             document.cookie = `oldNonce_${EV_STATE.EV_STATIC_PARAMS.voting_id}=${nonceBase64}; path=/; max-age=86400; samesite=strict`;
+            document.cookie = `oldLink_${EV_STATE.EV_STATIC_PARAMS.voting_id}=${link}; path=/; max-age=86400; samesite=strict`;
 
 
             return true
@@ -354,13 +367,16 @@ export async function initializeVoting(params) {
 
             try {
                 const canvas = document.getElementById('previous-vote-qr');
-                QRCode.toCanvas(canvas, EV_STATE.oldVotingParams.oldLabel, function (error) {
+                QRCode.toCanvas(canvas, EV_STATE.oldVotingParams.oldLink, function (error) {
                     if (error) console.error(error);
                     else console.log('QR-код сгенерирован!');
                 });
             } catch (error) {
                 console.error('Ошибка генерации QR-кода:', error);
             }
+
+            const linkElement = document.querySelector('.qr-container').querySelector('a');
+            linkElement.href = EV_STATE.oldVotingParams.oldLink;
 
         }
 

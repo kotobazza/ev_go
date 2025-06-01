@@ -48,7 +48,7 @@ export function getOldVotingParams(votingId) {
 
     const oldLabel = cookies[`oldLabel_${votingId}`];
     const oldNonce = cookies[`oldNonce_${votingId}`];
-
+    const oldLink = cookies[`oldLink_${votingId}`];
     console.log(cookies)
 
     if (!oldLabel || !oldNonce) {
@@ -58,6 +58,7 @@ export function getOldVotingParams(votingId) {
     return {
         oldLabel,
         oldNonce,
+        oldLink,
     };
 }
 

@@ -70,10 +70,25 @@ func main() {
 	}))
 
 	mux.Handle("/voting/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Получаем ID из URL
-		votingID := strings.TrimPrefix(r.URL.Path, "/voting/")
-		// Передаем управление основному обработчику
-		handlers.ShowVotingPage(w, r, votingID)
+		path := strings.TrimPrefix(r.URL.Path, "/voting/")
+
+		if !strings.Contains(path, "/tracking/") {
+			// Обработка обычного запроса голосования
+			votingID := path
+			handlers.ShowVotingPage(w, r, votingID)
+			return
+		}
+
+		// Обработка запроса отслеживания
+		parts := strings.Split(path, "/tracking/")
+		if len(parts) != 2 {
+			http.Error(w, "Неверный формат URL", http.StatusBadRequest)
+			return
+		}
+		votingID := parts[0]
+		trackingValue := parts[1]
+
+		handlers.TrackVoting(w, r, votingID, trackingValue)
 	}))
 
 	mux.Handle("/results/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

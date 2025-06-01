@@ -529,7 +529,7 @@ func ShowResultsPage(w http.ResponseWriter, r *http.Request, votingID string) {
 	for _, option := range votingOptions {
 
 		if val, ok := integeredResult[option.OptionIndex]; ok {
-			log.Info().Msg("option: " + fmt.Sprintf("%v", option.OptionIndex))
+			log.Info().Str("option", option.OptionText).Int64("val", val).Msg("option")
 
 			result.ResultedCount[option.OptionText] = val
 		}
@@ -675,6 +675,19 @@ func CalculateVoting(w http.ResponseWriter, r *http.Request, votingID string) {
 
 	log.Info().Msg("Numbers: " + fmt.Sprintf("%v", numbers))
 
+	for len(votingOptions) != len(numbers) {
+		numbers = append(numbers, 0)
+	}
+
+	for _, number := range numbers {
+		if number > int64(len(votingOptions)) {
+			log.Error().Msg("Number is greater than the number of voting options")
+			return
+		}
+	}
+
+	log.Info().Msg("Numbers: " + fmt.Sprintf("%v", numbers))
+
 	log.Info().Msg("Root hash: " + rootHash)
 
 	tx, err := db.Begin(ctx)
@@ -764,4 +777,137 @@ func CalculateVoting(w http.ResponseWriter, r *http.Request, votingID string) {
 
 	log.Info().Msg("Results calculated")
 
+}
+
+// TrackVoting обрабатывает запросы на отслеживание голосования
+func TrackVoting(w http.ResponseWriter, r *http.Request, votingID, trackingValue string) {
+	log := logger.GetLogger()
+	log.Info().
+		Str("voting_id", votingID).
+		Str("tracking_value", trackingValue).
+		Msg("Tracking voting request received")
+
+	db := database.GetCounterPGConnection()
+	ctx := context.Background()
+
+	rows, err := db.Query(ctx, "SELECT * FROM votings WHERE id = $1 AND state <> 0 AND state <> 3", votingID)
+	if err != nil {
+		log.Error().Err(err).Msg("Error getting votings")
+		http.Error(w, "Error getting votings", http.StatusInternalServerError)
+		return
+	}
+	defer rows.Close()
+
+	if !rows.Next() {
+		log.Error().Msg("Voting not found")
+		http.Error(w, "Voting not found", http.StatusNotFound)
+		return
+	}
+
+	rows.Close()
+
+	rows, err = db.Query(ctx, "SELECT * FROM voting_options WHERE voting_id = $1", votingID)
+	if err != nil {
+		log.Error().Err(err).Msg("Error getting voting options")
+		http.Error(w, "Error getting voting options", http.StatusInternalServerError)
+		return
+	}
+	defer rows.Close()
+
+	rows, err = db.Query(ctx, "SELECT mr.id, mr.root_value FROM merklie_roots mr JOIN public_encrypted_votes pev ON mr.id = pev.corresponds_to_merklie_root WHERE pev.label = $1 ORDER BY mr.created_at DESC LIMIT 1", trackingValue)
+	if err != nil {
+		log.Error().Err(err).Msg("Error getting merklie roots")
+		http.Error(w, "Error getting merklie roots", http.StatusInternalServerError)
+		return
+	}
+	defer rows.Close()
+
+	if !rows.Next() {
+		log.Error().Msg("Merklie root not found")
+		http.Error(w, "Merklie root not found", http.StatusNotFound)
+		return
+	}
+
+	var merklieRootID int64
+	var merklieRoot string
+	err = rows.Scan(&merklieRootID, &merklieRoot)
+	if err != nil {
+		log.Error().Err(err).Msg("Error scanning merklie root")
+		http.Error(w, "Error scanning merklie root", http.StatusInternalServerError)
+		return
+	}
+
+	rows.Close()
+
+	log.Info().Msg("Found MerklieRoot")
+
+	rows, err = db.Query(ctx, "SELECT * FROM public_encrypted_votes WHERE corresponds_to_merklie_root = $1", merklieRootID)
+	if err != nil {
+		log.Error().Err(err).Msg("Error getting public encrypted votes")
+		http.Error(w, "Error getting public encrypted votes", http.StatusInternalServerError)
+		return
+	}
+	defer rows.Close()
+
+	publicEncryptedVotes := []models.PublicEncryptedVote{}
+
+	for rows.Next() {
+		var publicEncryptedVote models.PublicEncryptedVote
+		err = rows.Scan(&publicEncryptedVote.VotingID, &publicEncryptedVote.Label, &publicEncryptedVote.CorrespondsToMerklieRootID, &publicEncryptedVote.EncryptedVote, &publicEncryptedVote.CreatedAt, &publicEncryptedVote.MovedIntoAt)
+		if err != nil {
+			log.Error().Err(err).Msg("Error scanning public encrypted votes")
+		}
+		publicEncryptedVotes = append(publicEncryptedVotes, publicEncryptedVote)
+	}
+
+	var trueValue string = ""
+	for _, vote := range publicEncryptedVotes {
+		if vote.Label == trackingValue {
+			trueValue = vote.EncryptedVote
+			break
+		}
+	}
+
+	merkleTree := merklie.NewMerkleTree()
+
+	for _, vote := range publicEncryptedVotes {
+		merkleTree.AddLeaf(vote.EncryptedVote)
+	}
+
+	proof := merkleTree.GetProof(merklie.Hash(trueValue))
+
+	log.Info().Msg("True value hash:  " + merklie.Hash(trueValue))
+
+	log.Info().Msg("Proof: " + fmt.Sprintf("%v", proof))
+
+	log.Info().Msg("Merklie root: " + merklieRoot)
+
+	calculatedRoot, err := merklie.CalculateRootFromProof(proof, merklie.Hash(trueValue))
+	if err != nil {
+		log.Error().Err(err).Msg("Error calculating root from proof")
+		http.Error(w, "Error calculating root from proof", http.StatusInternalServerError)
+		return
+	}
+
+	log.Info().Msg("Calculated root: " + calculatedRoot)
+
+	if calculatedRoot != merklieRoot {
+		log.Error().Msg("Calculated root does not match merklie root")
+		return
+	}
+
+	jsonedProof, err := json.Marshal(proof)
+	if err != nil {
+		log.Error().Err(err).Msg("Error marshalling proof")
+		return
+	}
+
+	log.Info().Msg("Jsoned proof: " + string(jsonedProof))
+
+	// Временная заглушка
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	fmt.Fprintf(w, `{"status": "tracking", "voting_id": "%s", "tracking_value_hash": "%s", "found_root_hash": "%s", "hashes": %s}`,
+		votingID, merklie.Hash(trueValue),
+		merklieRoot, string(jsonedProof))
 }

@@ -22,13 +22,13 @@ func NewMerkleTree() *MerkleTree {
 	return &MerkleTree{}
 }
 
-func hash(data string) string {
+func Hash(data string) string {
 	digest := sha512.Sum512([]byte(data))
 	return hex.EncodeToString(digest[:])
 }
 
 func (mt *MerkleTree) AddLeaf(data string) {
-	leaf := &Node{HashHex: hash(data)}
+	leaf := &Node{HashHex: Hash(data)}
 	mt.leaves = append(mt.leaves, leaf)
 	mt.root = mt.buildTree(mt.leaves)
 }
@@ -69,7 +69,7 @@ func (mt *MerkleTree) buildTree(nodes []*Node) *Node {
 			right := nodes[i+1]
 			combined := left.HashHex + right.HashHex
 			parent := &Node{
-				HashHex: hash(combined),
+				HashHex: Hash(combined),
 				Left:    left,
 				Right:   right,
 			}
@@ -78,7 +78,7 @@ func (mt *MerkleTree) buildTree(nodes []*Node) *Node {
 			// Повторяем последний узел
 			combined := left.HashHex + left.HashHex
 			parent := &Node{
-				HashHex: hash(combined),
+				HashHex: Hash(combined),
 				Left:    left,
 				Right:   nil,
 			}
@@ -88,14 +88,13 @@ func (mt *MerkleTree) buildTree(nodes []*Node) *Node {
 	return mt.buildTree(nextLevel)
 }
 
-func (mt *MerkleTree) GetProof(leafHash string) []struct {
+type MerklieTreePublicNode struct {
 	Hash    string
 	IsRight bool
-} {
-	var proof []struct {
-		Hash    string
-		IsRight bool
-	}
+}
+
+func (mt *MerkleTree) GetProof(leafHash string) []MerklieTreePublicNode {
+	var proof []MerklieTreePublicNode
 
 	var findPath func(*Node, *Node) ([]*Node, bool)
 	findPath = func(current, target *Node) ([]*Node, bool) {
@@ -130,18 +129,34 @@ func (mt *MerkleTree) GetProof(leafHash string) []struct {
 		parent := path[i+1]
 		current := path[i]
 		if parent.Left == current && parent.Right != nil {
-			proof = append(proof, struct {
-				Hash    string
-				IsRight bool
-			}{Hash: parent.Right.HashHex, IsRight: true})
+			proof = append(proof, MerklieTreePublicNode{Hash: parent.Right.HashHex, IsRight: true})
 		} else if parent.Right == current && parent.Left != nil {
-			proof = append(proof, struct {
-				Hash    string
-				IsRight bool
-			}{Hash: parent.Left.HashHex, IsRight: false})
+			proof = append(proof, MerklieTreePublicNode{Hash: parent.Left.HashHex, IsRight: false})
 		}
 	}
 	return proof
+}
+
+func CalculateRootFromProof(proof []MerklieTreePublicNode, trueHash string) (string, error) {
+	if len(proof) == 0 {
+		return "", fmt.Errorf("empty proof")
+	}
+
+	currentHash := trueHash
+
+	for _, node := range proof {
+		if node.IsRight {
+			// Если узел в доказательстве является правым, то текущий хэш - левый
+			combined := currentHash + node.Hash
+			currentHash = Hash(combined)
+		} else {
+			// Если узел в доказательстве является левым, то текущий хэш - правый
+			combined := node.Hash + currentHash
+			currentHash = Hash(combined)
+		}
+	}
+
+	return currentHash, nil
 }
 
 func (mt *MerkleTree) Serialize() string {

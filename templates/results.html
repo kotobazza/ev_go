@@ -87,6 +87,15 @@
     <div class="container">
         <h1>Результаты голосования</h1>
 
+        <div class="voting-info">
+            <strong>ID голосования:</strong> {{.Voting.ID}} <br />
+            <strong>Название голосования:</strong> {{.Voting.Name}} <br />
+            <strong>Вопрос:</strong> {{.Voting.Question}} <br />
+            <strong>Время начала:</strong> {{.Voting.StartTime}} <br />
+            <strong>Время окончания принятия голосов:</strong> {{.Voting.EndTime}} <br />
+            <strong>Время аудита:</strong> {{.Voting.AuditTime}} <br />
+        </div>
+
         {{if .Result}}
         <div class="section">
             <h2>Результаты</h2>
@@ -110,14 +119,7 @@
         </div>
         {{end}}
 
-        <div class="voting-info">
-            <strong>ID голосования:</strong> {{.Voting.ID}} <br />
-            <strong>Название голосования:</strong> {{.Voting.Name}} <br />
-            <strong>Вопрос:</strong> {{.Voting.Question}} <br />
-            <strong>Время начала:</strong> {{.Voting.StartTime}} <br />
-            <strong>Время окончания принятия голосов:</strong> {{.Voting.EndTime}} <br />
-            <strong>Время аудита:</strong> {{.Voting.AuditTime}} <br />
-        </div>
+
 
         <div class="section">
             <h2>Корень Меркла</h2>
