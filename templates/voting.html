@@ -154,6 +154,70 @@
             opacity: 1;
             transform: translateY(0);
         }
+
+        .previous-vote {
+            margin: 20px 0;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            border: 1px solid #e0e0e0;
+        }
+
+        .previous-vote h3 {
+            color: #333;
+            font-size: 1.2em;
+            margin-bottom: 15px;
+        }
+
+        .previous-vote-item {
+            padding: 15px;
+            background: white;
+            border-radius: 6px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            max-width: 300px;
+            margin: 0 auto;
+            text-align: center;
+        }
+
+        .qr-container {
+            text-align: center;
+            margin-bottom: 10px;
+        }
+
+        .qr-container a {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            text-decoration: none;
+        }
+
+        .previous-vote-qr {
+            max-width: 150px;
+            height: auto;
+            display: block;
+            margin: 0 auto;
+        }
+
+        .vote-details {
+            text-align: center;
+        }
+
+        .vote-details .label-preview {
+            display: block;
+            font-size: 0.8em;
+            margin: 8px 0;
+            word-break: break-all;
+            background: #f8f9fa;
+            padding: 8px;
+            border-radius: 4px;
+        }
+
+        .vote-timestamp {
+            display: block;
+            font-size: 0.9em;
+            color: #666;
+            margin-top: 5px;
+        }
     </style>
 </head>
 
@@ -164,6 +228,21 @@
             <div class="voting-form">
                 <div class="voting-title">{{.Voting.Name}}</div>
                 <div class="voting-question">{{.Voting.Question}}</div>
+
+                <div class="previous-vote">
+
+                    <div class="previous-vote-item">
+                        <h3>Отслеживание предыдщуего голоса доступно по QR-коду</h3>
+                        <div class="qr-container">
+                            <a href="/voting/"><canvas id="previous-vote-qr"></canvas></a>
+                        </div>
+                        <div class="vote-details">
+                            <code class="previous-vote-label-preview label-preview"></code>
+                        </div>
+                    </div>
+                </div>
+
+
 
                 <form id="votingForm" action="/voting/subscribe" method="post">
                     <input type="hidden" name="voting_id" value="{%voting_id%}">
@@ -224,7 +303,7 @@
                         <div class="ballot-label">
                             <p>Ваш уникальный идентификатор бюллетеня:</p>
                             <a href="/voting/"><canvas id="qrcode"></canvas></a>
-                            <code class="label-preview"></code>
+                            <code class="label-preview label-new"></code>
                             <p>Наведите камеру на QR-код для проверки голоса или перейдите по ссылке выше внутри QR-кода
                             </p>
 
@@ -277,6 +356,19 @@
         // Инициализация после загрузки DOM
         document.addEventListener('DOMContentLoaded', () => {
             initializeVoting(EV_STATIC_PARAMS);
+
+            // Генерация QR-кодов для предыдущих голосов
+            document.querySelectorAll('.previous-vote-qr').forEach(canvas => {
+                const label = canvas.dataset.label;
+                QRCode.toCanvas(canvas, window.location.origin + '/voting/' + label, {
+                    width: 150,
+                    margin: 2,
+                    color: {
+                        dark: '#000000',
+                        light: '#ffffff'
+                    }
+                });
+            });
         });
 
 

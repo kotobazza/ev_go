@@ -8,7 +8,9 @@ import (
 	"ev/internal/crypto/blind_signature"
 	"ev/internal/crypto/zkp"
 	"ev/internal/database"
+	"ev/internal/handlers/render"
 	"ev/internal/logger"
+	"ev/internal/models"
 	"fmt"
 	"io"
 	"net/http"
@@ -390,5 +392,109 @@ func SubmitVote(w http.ResponseWriter, r *http.Request) {
 	}
 
 	log.Info().Msg("Vote submitted successfully")
+
+}
+
+type ResultsPageData struct {
+	Voting               *models.Voting
+	Result               *models.Result
+	MerklieRoots         []models.MerklieRoot
+	PublicEncryptedVotes []models.PublicEncryptedVote
+	ZkpProof             string
+}
+
+func ShowResultsPage(w http.ResponseWriter, r *http.Request, votingID string) {
+	log := logger.GetLogger()
+	log.Info().Msg("Showing results page")
+
+	db := database.GetCounterPGConnection()
+	ctx := context.Background()
+
+	rows, err := db.Query(ctx, "SELECT * FROM results WHERE voting_id = $1", votingID)
+	if err != nil {
+		log.Error().Err(err).Msg("Error getting results")
+		return
+	}
+
+	defer rows.Close()
+
+	var result *models.Result = nil
+
+	if rows.Next() {
+		result = &models.Result{}
+		err = rows.Scan(&result.ID, &result.VotingID, &result.MerkleRoot, &result.ResultedCount, &result.CreatedAt, &result.ZkpProof)
+		if err != nil {
+			log.Error().Err(err).Msg("Error scanning results")
+		}
+	}
+
+	rows.Close()
+
+	rows, err = db.Query(ctx, "SELECT * FROM merklie_roots WHERE voting_id = $1", votingID)
+	if err != nil {
+		log.Error().Err(err).Msg("Error getting merklie roots")
+		return
+	}
+	defer rows.Close()
+
+	merklieRoots := []models.MerklieRoot{}
+
+	for rows.Next() {
+		var merklieRoot models.MerklieRoot
+		err = rows.Scan(&merklieRoot.ID, &merklieRoot.VotingID, &merklieRoot.RootValue, &merklieRoot.CreatedAt)
+		if err != nil {
+			log.Error().Err(err).Msg("Error scanning merklie roots")
+		}
+		merklieRoots = append(merklieRoots, merklieRoot)
+	}
+
+	rows, err = db.Query(ctx, "SELECT * FROM public_encrypted_votes WHERE voting_id = $1", votingID)
+	if err != nil {
+		log.Error().Err(err).Msg("Error getting public encrypted votes")
+		return
+	}
+	defer rows.Close()
+
+	publicEncryptedVotes := []models.PublicEncryptedVote{}
+
+	for rows.Next() {
+		var publicEncryptedVote models.PublicEncryptedVote
+		err = rows.Scan(&publicEncryptedVote.VotingID, &publicEncryptedVote.Label, &publicEncryptedVote.EncryptedVote, &publicEncryptedVote.CreatedAt, &publicEncryptedVote.MovedIntoAt)
+		if err != nil {
+			log.Error().Err(err).Msg("Error scanning public encrypted votes")
+		}
+		publicEncryptedVotes = append(publicEncryptedVotes, publicEncryptedVote)
+	}
+
+	rows.Close()
+
+	db = database.GetREGPGConnection() //только для получения информации о голосовании
+	ctx = context.Background()
+
+	rows, err = db.Query(ctx, "SELECT * FROM votings WHERE id = $1", votingID)
+	if err != nil {
+		log.Error().Err(err).Msg("Error getting votings")
+		return
+	}
+	defer rows.Close()
+
+	var voting *models.Voting = nil
+
+	if rows.Next() {
+		voting = &models.Voting{}
+		err = rows.Scan(&voting.ID, &voting.Name, &voting.Question, &voting.StartTime, &voting.AuditTime, &voting.EndTime)
+		if err != nil {
+			log.Error().Err(err).Msg("Error scanning votings")
+		}
+	}
+
+	rows.Close()
+
+	render.RenderTemplate(w, "results", ResultsPageData{
+		Voting:               voting,
+		Result:               result,
+		MerklieRoots:         merklieRoots,
+		PublicEncryptedVotes: publicEncryptedVotes,
+	})
 
 }

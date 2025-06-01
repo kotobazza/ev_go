@@ -285,7 +285,6 @@
                         <th>ID голосования</th>
                         <th>Корни</th>
                         <th>Время создания</th>
-                        <th>Время истечения</th>
                         <th>Действия</th>
                     </tr>
                 </thead>
@@ -294,9 +293,8 @@
                     <tr>
                         <td>{{.ID}}</td>
                         <td>{{.VotingID}}</td>
-                        <td>{{.Root}}</td>
+                        <td>{{.RootValue}}</td>
                         <td>{{.CreatedAt}}</td>
-                        <td>{{.ValidUntil}}</td>
                         <td>
                             <form action="/admin/merkli-roots/delete/{{.ID}}" method="POST" style="display: inline;">
                                 <button type="submit" class="btn btn-danger btn-sm">Удалить</button>

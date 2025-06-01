@@ -7,10 +7,12 @@ import (
 	"ev/internal/handlers"
 	"ev/internal/logger"
 	"ev/internal/middleware"
+	"ev/internal/worker"
 	"fmt"
 	"net/http"
 	"os"
 	"strings"
+	"time"
 )
 
 func main() {
@@ -54,6 +56,9 @@ func main() {
 		os.Exit(1)
 	}
 
+	go worker.RunBackgroundResultPublication(60 * time.Second)
+	log.Info().Msg("Background result publication started")
+
 	mux := http.NewServeMux()
 
 	// Статические файлы
@@ -76,6 +81,13 @@ func main() {
 		votingID := strings.TrimPrefix(r.URL.Path, "/voting/")
 		// Передаем управление основному обработчику
 		handlers.ShowVotingPage(w, r, votingID)
+	}))
+
+	mux.Handle("/results/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Получаем ID из URL
+		votingID := strings.TrimPrefix(r.URL.Path, "/results/")
+		// Передаем управление основному обработчику
+		handlers.ShowResultsPage(w, r, votingID)
 	}))
 
 	mux.Handle("/admin/votings/delete/", middleware.AuthMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

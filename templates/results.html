@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="ru">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Результаты голосования</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .voting-info {
+            background-color: #e8f4ff;
+            padding: 15px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+        }
+
+        .section {
+            margin-bottom: 30px;
+        }
+
+        .section h2 {
+            color: #444;
+            border-bottom: 2px solid #eee;
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+        }
+
+        .merkle-root,
+        .vote {
+            background-color: white;
+            padding: 15px;
+            margin-bottom: 15px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+        }
+
+        .vote {
+            display: grid;
+            grid-template-columns: 1fr 2fr;
+            gap: 10px;
+        }
+
+        .label {
+            font-weight: bold;
+            color: #666;
+        }
+
+        .value {
+            color: #333;
+        }
+
+        .timestamp {
+            color: #888;
+            font-size: 0.9em;
+            margin-top: 5px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1>Результаты голосования</h1>
+
+        <div class="voting-info">
+            <strong>ID голосования:</strong> {{.Voting.ID}} <br />
+            <strong>Название голосования:</strong> {{.Voting.Name}} <br />
+            <strong>Вопрос:</strong> {{.Voting.Question}} <br />
+            <strong>Время начала:</strong> {{.Voting.StartTime}} <br />
+            <strong>Время окончания принятия голосов:</strong> {{.Voting.EndTime}} <br />
+            <strong>Время аудита:</strong> {{.Voting.AuditTime}} <br />
+        </div>
+
+        <div class="section">
+            <h2>Корень Меркла</h2>
+            {{range .MerklieRoots}}
+            <div class="merkle-root">
+                <div class="label">Значение корня:</div>
+                <div class="value">{{.RootValue}}</div>
+                <div class="timestamp">Создан: {{.CreatedAt}}</div>
+            </div>
+            {{end}}
+        </div>
+
+        <div class="section">
+            <h2>Зашифрованные голоса</h2>
+            {{range .PublicEncryptedVotes}}
+            <div class="vote">
+                <div class="label">Метка:</div>
+                <div class="value">{{.Label}}</div>
+                <div class="label">Зашифрованный голос:</div>
+                <div class="value">{{.EncryptedVote}}</div>
+                <div class="label">Создан:</div>
+                <div class="value">{{.CreatedAt}}</div>
+                <div class="label">Перемещен:</div>
+                <div class="value">{{.MovedIntoAt}}</div>
+            </div>
+            {{end}}
+        </div>
+
+        {{if .Result}}
+        <div class="section">
+            <h2>Результаты</h2>
+            <div class="result">
+                <div class="label">Корень Меркла:</div>
+                <div class="value">{{.Result.MerkleRoot}}</div>
+                <div class="label">Результирующаяя сумма:</div>
+                <div class="value">{{.Result.ResultedCount}}</div>
+                <div class="label">Создан:</div>
+                <div class="value">{{.Result.CreatedAt}}</div>
+                <div class="label">ZKP доказательство подсчета:</div>
+                <div class="value">{{.Result.ZkpProof}}</div>
+            </div>
+        </div>
+        {{end}}
+</body>
+
+</html>

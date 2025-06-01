@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -350,22 +351,18 @@ func Logout(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Удаляем cookie
-	http.SetCookie(w, &http.Cookie{
-		Name:     "token",
-		Value:    "",
-		Path:     "/",
-		Expires:  time.Now().Add(-24 * time.Hour),
-		HttpOnly: true,
-	})
-
-	http.SetCookie(w, &http.Cookie{
-		Name:     "userData",
-		Value:    "",
-		Path:     "/",
-		Expires:  time.Now().Add(-24 * time.Hour),
-		HttpOnly: false,
-	})
+	for _, cookie := range r.Cookies() {
+		if strings.HasPrefix(cookie.Name, "oldLabel_") || strings.HasPrefix(cookie.Name, "oldNonce_") {
+			http.SetCookie(w, &http.Cookie{
+				Name:     cookie.Name,
+				Value:    "",
+				Path:     "/", // тот же путь, что и у установки
+				Expires:  time.Unix(0, 0),
+				MaxAge:   -1,
+				HttpOnly: true,
+			})
+		}
+	}
 
 	// Перенаправляем на страницу входа
 	http.Redirect(w, r, "/user/signin", http.StatusFound)

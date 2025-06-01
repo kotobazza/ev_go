@@ -310,7 +310,7 @@ export async function initializeVoting(params) {
             }
 
             // Показываем лейбл
-            document.querySelector('.label-preview').textContent = labelBase64;
+            document.querySelector('.label-new').textContent = labelBase64;
             const nonceBase64 = await bigIntToBase64(EV_STATE.nonce);
 
             // Генерируем куку с Label и Nonce как подтверждение голосования
@@ -343,6 +343,23 @@ export async function initializeVoting(params) {
 
         if (EV_STATE.oldVotingParams) {
             processVotingButton.textContent = "Отправить голос повторно";
+
+            const previousVote = document.querySelector('.previous-vote');
+            previousVote.style.display = 'block';
+
+
+            document.querySelector('.previous-vote-label-preview').textContent = EV_STATE.oldVotingParams.oldLabel;
+
+            try {
+                const canvas = document.getElementById('previous-vote-qr');
+                QRCode.toCanvas(canvas, EV_STATE.oldVotingParams.oldLabel, function (error) {
+                    if (error) console.error(error);
+                    else console.log('QR-код сгенерирован!');
+                });
+            } catch (error) {
+                console.error('Ошибка генерации QR-кода:', error);
+            }
+
         }
 
         // Обработка подтверждения

@@ -140,7 +140,7 @@ func ShowAdminPage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var merklieRoots []models.MerklieRoot
-	rows, err = counterDB.Query(counterCtx, "SELECT id, voting_id, root_value, created_at, valid_until FROM merklie_roots")
+	rows, err = counterDB.Query(counterCtx, "SELECT id, voting_id, root_value, created_at FROM merklie_roots")
 	if err != nil {
 		http.Error(w, "Запрос таблицы MerklieRoot не удался: "+err.Error(), http.StatusNotFound)
 		return
@@ -149,7 +149,7 @@ func ShowAdminPage(w http.ResponseWriter, r *http.Request) {
 
 	for rows.Next() {
 		var merklieRoot models.MerklieRoot
-		err = rows.Scan(&merklieRoot.ID, &merklieRoot.VotingID, &merklieRoot.RootValue, &merklieRoot.CreatedAt, &merklieRoot.ValidUntil)
+		err = rows.Scan(&merklieRoot.ID, &merklieRoot.VotingID, &merklieRoot.RootValue, &merklieRoot.CreatedAt)
 		if err != nil {
 			http.Error(w, "Перенос данных из таблицы MerklieRoot не удался: "+err.Error(), http.StatusNotFound)
 			return
