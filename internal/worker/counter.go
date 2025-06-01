@@ -89,7 +89,8 @@ func ReloadResults() {
 		currentTime := time.Now()
 
 		// Сохраняем корень в базу данных
-		_, err = tx.Exec(ctx, "INSERT INTO merklie_roots (voting_id, root_value, created_at) VALUES ($1, $2, $3)", votingID, rootHash, currentTime)
+		var insertedID int64
+		err = tx.QueryRow(ctx, "INSERT INTO merklie_roots (voting_id, root_value, created_at) VALUES ($1, $2, $3) RETURNING id", votingID, rootHash, currentTime).Scan(&insertedID)
 		if err != nil {
 			tx.Rollback(ctx)
 			log.Error().
@@ -100,8 +101,8 @@ func ReloadResults() {
 		}
 
 		for _, vote := range votes {
-			_, err = tx.Exec(ctx, "INSERT INTO public_encrypted_votes (voting_id, label, encrypted_vote, created_at, moved_into_at) VALUES ($1, $2, $3, $4, $5)",
-				vote.VotingID, vote.Label, vote.EncryptedVote, vote.CreatedAt, currentTime)
+			_, err = tx.Exec(ctx, "INSERT INTO public_encrypted_votes (voting_id, label, corresponds_to_merklie_root, encrypted_vote, created_at, moved_into_at) VALUES ($1, $2, $3, $4, $5, $6)",
+				vote.VotingID, vote.Label, insertedID, vote.EncryptedVote, vote.CreatedAt, currentTime)
 			if err != nil {
 				tx.Rollback(ctx)
 				log.Error().

@@ -365,6 +365,9 @@ export async function initializeVoting(params) {
         // Обработка подтверждения
         confirmButton.addEventListener('click', async () => {
             hideConfirmation();
+            const previousVote = document.querySelector('.previous-vote');
+            previousVote.style.display = 'none';
+
             await showVotingProcess();
         });
 
