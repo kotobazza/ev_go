@@ -198,7 +198,8 @@
                 <div class="label">Предоставлено доказательство включения зашифрованного голоса в реестр активных
                     бюллетеней</div>
                 <div class="value">Счетчик предоставляет набор Хешей, система вычисляет итоговое значение корня дерева
-                    Хешей на основе вашего голоса, предоставляя доказательство включения в реестр</div>
+                    Хешей на основе вашего голоса, предоставляя доказательство включения в реестр. Серые таблички
+                    соответствуют хешам, полученных с вашего устройства, голубые - хешам, полученным с сервера</div>
             </div>
         </div>
 
@@ -230,11 +231,11 @@
         </div>
     </div>
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+    <script src="/static/js/sha512.min.js"></script>
     <script>
         function calculateSHA512(left, right) {
             const combined = left + right;
-            return CryptoJS.SHA512(combined).toString();
+            return sha512(combined);
         }
 
         function displayMerklePath(merklePathData) {
@@ -375,13 +376,14 @@
             });
         }
 
+        const json = JSON.parse("{{.hashes}}");
 
 
-        const json = {{.hashes }};
+
 
         const trackingValueHash = "{{.tracking_value_hash}}";
 
-        const encryptedValue = {{.tracking_value }};
+        const encryptedValue = "{{.tracking_value}}";
         console.log(encryptedValue);
 
         json.push({ Hash: trackingValueHash, IsRight: true });
@@ -393,7 +395,7 @@
 
 
 
-        const hashedHash = document.querySelector('.hashed .value').textContent = CryptoJS.SHA512(encryptedValue).toString();
+        const hashedHash = document.querySelector('.hashed .value').textContent = sha512(encryptedValue);
 
 
 
