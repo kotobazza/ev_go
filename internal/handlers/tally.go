@@ -14,6 +14,7 @@ import (
 	"ev/internal/logger"
 	"ev/internal/models"
 	"fmt"
+	"html/template"
 	"io"
 	"net/http"
 	"time"
@@ -59,6 +60,7 @@ func SubmitVote(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusInternalServerError)
 			log.Error().Err(err).Msg("Error sending response")
 		}
+		log.Error().Err(err).Msg("Error reading request body")
 		return
 	}
 
@@ -74,6 +76,7 @@ func SubmitVote(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusInternalServerError)
 			log.Error().Err(err).Msg("Error sending response")
 		}
+		log.Error().Err(err).Msg("Error unmarshalling request body")
 		return
 	}
 
@@ -88,6 +91,7 @@ func SubmitVote(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusInternalServerError)
 			log.Error().Err(err).Msg("Error sending response")
 		}
+		log.Error().Err(err).Msg("Error parsing ballot")
 		return
 	}
 
@@ -102,6 +106,7 @@ func SubmitVote(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusInternalServerError)
 			log.Error().Err(err).Msg("Error sending response")
 		}
+		log.Error().Err(err).Str("ballot", ballot.ToBase64()).Str("n", config.CryptoParams[votingIDStr].RSA.N.ToBase64()).Msg("Found ballot is greater than n")
 		return
 	}
 
@@ -119,6 +124,7 @@ func SubmitVote(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusInternalServerError)
 			log.Error().Err(err).Msg("Error sending response")
 		}
+		log.Error().Err(err).Msg("Error getting voting data")
 		return
 	}
 
@@ -134,6 +140,7 @@ func SubmitVote(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusInternalServerError)
 			log.Error().Err(err).Msg("Error sending response")
 		}
+		log.Error().Msg("Voting is not active or not started")
 		return
 	}
 	label, err := bigint.NewBigIntFromBase64(data.Label)
@@ -147,6 +154,7 @@ func SubmitVote(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusInternalServerError)
 			log.Error().Err(err).Msg("Error sending response")
 		}
+		log.Error().Err(err).Msg("Error parsing label")
 		return
 	}
 	bs := blind_signature.BlindSignature{}
@@ -164,6 +172,7 @@ func SubmitVote(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusInternalServerError)
 			log.Error().Err(err).Msg("Error sending response")
 		}
+		log.Error().Err(err).Msg("Error parsing signature")
 		return
 	}
 
@@ -199,6 +208,7 @@ func SubmitVote(w http.ResponseWriter, r *http.Request) {
 					w.WriteHeader(http.StatusInternalServerError)
 					log.Error().Err(err).Msg("Error sending response")
 				}
+				log.Error().Msg("Error parsing old label and nonce")
 				return
 			}
 			oldLabel, err = bigint.NewBigIntFromBase64(addPadding(data.OldLabel))
@@ -217,6 +227,7 @@ func SubmitVote(w http.ResponseWriter, r *http.Request) {
 					w.WriteHeader(http.StatusInternalServerError)
 					log.Error().Err(err).Msg("Error sending response")
 				}
+				log.Error().Msg("Error parsing old label")
 				return
 			}
 			oldNonce, err := bigint.NewBigIntFromBase64(data.OldNonce)
@@ -230,6 +241,7 @@ func SubmitVote(w http.ResponseWriter, r *http.Request) {
 					w.WriteHeader(http.StatusInternalServerError)
 					log.Error().Err(err).Msg("Error sending response")
 				}
+				log.Error().Err(err).Msg("Error parsing old nonce")
 				return
 			}
 
@@ -251,6 +263,7 @@ func SubmitVote(w http.ResponseWriter, r *http.Request) {
 					w.WriteHeader(http.StatusInternalServerError)
 					log.Error().Err(err).Msg("Error sending response")
 				}
+				log.Error().Err(err).Msg("Error getting encrypted vote")
 				return
 			}
 
@@ -264,6 +277,7 @@ func SubmitVote(w http.ResponseWriter, r *http.Request) {
 					w.WriteHeader(http.StatusInternalServerError)
 					log.Error().Err(err).Msg("Error sending response")
 				}
+				log.Error().Msg("Old ballot not found")
 				return
 			}
 			var encryptedVote string
@@ -289,6 +303,7 @@ func SubmitVote(w http.ResponseWriter, r *http.Request) {
 					w.WriteHeader(http.StatusInternalServerError)
 					log.Error().Err(err).Msg("Error sending response")
 				}
+				log.Error().Msg("Old ballot label mismatch")
 				return
 			}
 			log.Info().Msg("Old ballot verified")
@@ -316,6 +331,7 @@ func SubmitVote(w http.ResponseWriter, r *http.Request) {
 				w.WriteHeader(http.StatusInternalServerError)
 				log.Error().Err(err).Msg("Error sending response")
 			}
+			log.Error().Err(err).Msg("Error parsing ZKP proof E vector")
 			return
 		}
 	}
@@ -332,6 +348,7 @@ func SubmitVote(w http.ResponseWriter, r *http.Request) {
 				w.WriteHeader(http.StatusInternalServerError)
 				log.Error().Err(err).Msg("Error sending response")
 			}
+			log.Error().Err(err).Msg("Error parsing ZKP proof Z vector")
 			return
 		}
 	}
@@ -348,6 +365,7 @@ func SubmitVote(w http.ResponseWriter, r *http.Request) {
 				w.WriteHeader(http.StatusInternalServerError)
 				log.Error().Err(err).Msg("Error sending response")
 			}
+			log.Error().Err(err).Msg("Error parsing ZKP proof A vector")
 			return
 		}
 	}
@@ -355,7 +373,7 @@ func SubmitVote(w http.ResponseWriter, r *http.Request) {
 	validMessages := make([]*bigint.BigInt, len(data.ZKPProofEVec))
 
 	for i := range data.ZKPProofEVec {
-		validMessages[i] = bigint.NewBigIntFromInt(int64(2)).Pow(bigint.NewBigIntFromInt(int64(30 * i)))
+		validMessages[i] = bigint.NewBigIntFromInt(int64(2)).Pow(bigint.NewBigIntFromInt(int64(int(config.CryptoParams[votingIDStr].Base) * i)))
 	}
 
 	zkp := zkp.NewCorrectMessageProof(zkpProofEVec, zkpProofZVec, zkpProofAVec, ballot, validMessages, config.CryptoParams[votingIDStr].Paillier.N, config.CryptoParams[votingIDStr].ChallengeBits)
@@ -370,6 +388,7 @@ func SubmitVote(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusInternalServerError)
 			log.Error().Err(err).Msg("Error sending response")
 		}
+		log.Error().Err(err).Msg("Error verifying ZKP proof")
 		return
 	}
 
@@ -387,6 +406,7 @@ func SubmitVote(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusInternalServerError)
 			log.Error().Err(err).Msg("Error sending response")
 		}
+		log.Error().Err(err).Msg("Error deleting old ballot")
 		log.Info().Msg("Old ballot deleted")
 	}
 
@@ -407,6 +427,7 @@ func SubmitVote(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusInternalServerError)
 			log.Error().Err(err).Msg("Error sending response")
 		}
+		log.Error().Err(err).Msg("Error adding ballot to database")
 		return
 	}
 
@@ -419,6 +440,7 @@ func SubmitVote(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		log.Error().Err(err).Msg("Error sending response")
+
 	}
 
 	log.Info().Msg("Vote submitted successfully")
@@ -666,6 +688,23 @@ func CalculateVoting(w http.ResponseWriter, r *http.Request, votingID string) {
 	log.Info().Msg("Decrypted sum: " + binaryString)
 
 	chunks := decryptedSum.SplitIntoChunks(uint(config.CryptoParams[votingID].Base))
+	//экививалентно следующему коду
+	/*
+			if chunkSize == 0 {
+			return nil
+		}
+
+		var chunks []*BigInt
+		tmp := a.Copy()
+		mask := NewBigIntFromUint(1).Lsh(chunkSize).Sub(NewBigIntFromUint(1)) // Маска: (1 << chunkSize) - 1
+
+		for tmp.bn.Sign() != 0 { // Пока число не стало нулём
+			chunk := tmp.And(mask) // Берём младшие chunkSize бит
+			chunks = append(chunks, chunk)
+			tmp = tmp.Rsh(chunkSize) // Сдвигаем вправо на chunkSize бит
+		}
+
+		return chunks*/
 
 	numbers := []int64{}
 
@@ -679,12 +718,12 @@ func CalculateVoting(w http.ResponseWriter, r *http.Request, votingID string) {
 		numbers = append(numbers, 0)
 	}
 
-	for _, number := range numbers {
-		if number > int64(len(votingOptions)) {
-			log.Error().Msg("Number is greater than the number of voting options")
-			return
-		}
-	}
+	// for _, number := range numbers {
+	// 	if number > int64(len(votingOptions)) {
+	// 		log.Error().Msg("Number is greater than the number of voting options")
+	// 		return
+	// 	}
+	// }
 
 	log.Info().Msg("Numbers: " + fmt.Sprintf("%v", numbers))
 
@@ -814,7 +853,7 @@ func TrackVoting(w http.ResponseWriter, r *http.Request, votingID, trackingValue
 	}
 	defer rows.Close()
 
-	rows, err = db.Query(ctx, "SELECT mr.id, mr.root_value FROM merklie_roots mr JOIN public_encrypted_votes pev ON mr.id = pev.corresponds_to_merklie_root WHERE pev.label = $1 ORDER BY mr.created_at DESC LIMIT 1", trackingValue)
+	rows, err = db.Query(ctx, "SELECT mr.id, mr.root_value, mr.created_at FROM merklie_roots mr JOIN public_encrypted_votes pev ON mr.id = pev.corresponds_to_merklie_root WHERE pev.label = $1 ORDER BY mr.created_at DESC LIMIT 1", trackingValue)
 	if err != nil {
 		log.Error().Err(err).Msg("Error getting merklie roots")
 		http.Error(w, "Error getting merklie roots", http.StatusInternalServerError)
@@ -830,7 +869,8 @@ func TrackVoting(w http.ResponseWriter, r *http.Request, votingID, trackingValue
 
 	var merklieRootID int64
 	var merklieRoot string
-	err = rows.Scan(&merklieRootID, &merklieRoot)
+	var merklieRootCreatedAt time.Time
+	err = rows.Scan(&merklieRootID, &merklieRoot, &merklieRootCreatedAt)
 	if err != nil {
 		log.Error().Err(err).Msg("Error scanning merklie root")
 		http.Error(w, "Error scanning merklie root", http.StatusInternalServerError)
@@ -868,6 +908,8 @@ func TrackVoting(w http.ResponseWriter, r *http.Request, votingID, trackingValue
 		}
 	}
 
+	log.Info().Msg("True value: " + trueValue)
+
 	merkleTree := merklie.NewMerkleTree()
 
 	for _, vote := range publicEncryptedVotes {
@@ -904,10 +946,13 @@ func TrackVoting(w http.ResponseWriter, r *http.Request, votingID, trackingValue
 
 	log.Info().Msg("Jsoned proof: " + string(jsonedProof))
 
-	// Временная заглушка
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	fmt.Fprintf(w, `{"status": "tracking", "voting_id": "%s", "tracking_value_hash": "%s", "found_root_hash": "%s", "hashes": %s}`,
-		votingID, merklie.Hash(trueValue),
-		merklieRoot, string(jsonedProof))
+	render.RenderTemplate(w, "tracking", map[string]interface{}{
+		"voting_id":           votingID,
+		"tracking_value_hash": merklie.Hash(trueValue),
+		"found_root_hash":     merklieRoot,
+		"hashes":              template.JS(string(jsonedProof)),
+		"created_at":          merklieRootCreatedAt.Format(time.RFC3339),
+		"tracking_value":      trueValue,
+	})
+
 }

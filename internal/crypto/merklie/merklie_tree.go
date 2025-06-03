@@ -125,6 +125,7 @@ func (mt *MerkleTree) GetProof(leafHash string) []MerklieTreePublicNode {
 	}
 
 	path, _ := findPath(mt.root, leaf)
+
 	for i := 0; i < len(path)-1; i++ {
 		parent := path[i+1]
 		current := path[i]

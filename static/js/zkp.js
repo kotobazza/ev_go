@@ -1,6 +1,6 @@
 import { modPow, modInverse, randomBigInt, gcd, computeDigest } from './math.js';
 
-export async function generateProof(n, validMessages, messageToEncrypt) {
+export async function generateProof(n, validMessages, messageToEncrypt, challenge_bits) {
     const nn = BigInt(n) * BigInt(n);
     const numOfMessages = validMessages.length;
 
@@ -20,8 +20,8 @@ export async function generateProof(n, validMessages, messageToEncrypt) {
         uiVec.push(ui);
     }
 
-    const B = 256;
-    const twoToB = 2n ** 256n;
+    const B = challenge_bits;
+    const twoToB = 2n ** BigInt(B);
 
     const eiVec = [];
     const ziVec = [];
@@ -95,10 +95,10 @@ export async function generateProof(n, validMessages, messageToEncrypt) {
     };
 }
 
-export async function verify(e_vec, z_vec, a_vec, ciphertext, valid_messages, n) {
+export async function verify(e_vec, z_vec, a_vec, ciphertext, valid_messages, n, challenge_bits) {
     console.log("Проверка всех доказательств");
     const numOfMessages = valid_messages.length;
-    const B = 256;
+    const B = challenge_bits;
     const twoToB = BigInt(2) ** BigInt(B);
     const nn = n * n;
     const g = n + 1n;

@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Merkle Path Visualization</title>
+    <link rel="stylesheet" href="/static/css/main.css">
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            margin: 20px;
+            background-color: #f5f5f5;
+        }
+
+        .merkle-container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .node {
+            padding: 10px;
+            margin: 5px;
+            background-color: #fff;
+            border-radius: 4px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            position: relative;
+        }
+
+        .level {
+            display: flex;
+            justify-content: center;
+            margin: 20px 0;
+            position: relative;
+            align-items: center;
+        }
+
+        .arrow {
+            position: absolute;
+            bottom: -20px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: #666;
+        }
+
+        .hash {
+            font-family: monospace;
+            word-break: break-all;
+            font-size: 12px;
+        }
+
+        .direction {
+            color: #0066cc;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        .hash-combination {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            position: relative;
+        }
+
+        .current-node {
+            background-color: #e3f2fd;
+            border: 2px solid #1976d2;
+        }
+
+        .sibling-node {
+            background-color: #f5f5f5;
+            padding: 10px;
+            border-radius: 4px;
+            border: 1px dashed #666;
+        }
+
+        .hash-arrow {
+            font-size: 20px;
+            color: #1976d2;
+            margin: 0 5px;
+            position: relative;
+            left: -5px;
+            cursor: pointer;
+            padding: 5px;
+            border-radius: 4px;
+            transition: background-color 0.2s;
+        }
+
+        .hash-arrow:hover {
+            background-color: #e3f2fd;
+        }
+
+        .popup-result {
+            display: none;
+            position: absolute;
+            background: white;
+            border: 2px solid #1976d2;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            z-index: 1000;
+            width: max-content;
+            max-width: 500px;
+            top: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            margin-top: 10px;
+        }
+
+        .popup-result::before {
+            content: '';
+            position: absolute;
+            top: -10px;
+            left: 50%;
+            transform: translateX(-50%);
+            border-left: 10px solid transparent;
+            border-right: 10px solid transparent;
+            border-bottom: 10px solid #1976d2;
+        }
+
+        .hash-container {
+            position: relative;
+        }
+
+        .hash-container:hover .popup-result {
+            display: block;
+        }
+
+        .full-hash {
+            font-family: monospace;
+            word-break: break-all;
+            margin-top: 5px;
+            padding: 5px;
+            background: #f5f5f5;
+            border-radius: 4px;
+        }
+
+        .popup-title {
+            font-weight: bold;
+            color: #1976d2;
+            margin-bottom: 10px;
+        }
+
+        .hash-details {
+            font-size: 12px;
+            color: #666;
+            margin-top: 5px;
+            word-wrap: break-word;
+            white-space: pre-wrap;
+            overflow: hidden;
+        }
+
+        .root-node {
+            background-color: #e3f2fd;
+            border: 2px solid #1976d2;
+        }
+    </style>
+    <link rel="stylesheet" href="/static/css/main.css">
+</head>
+
+<body>
+
+    <div class="header">
+        <div class="brand">Система EV</div>
+        <div class="nav">
+            <a href="/user/profile" class="nav-link">Профиль</a>
+            <form action="/user/logout" method="POST" style="display: inline;">
+                <button type="submit" class="btn btn-danger">Выйти</button>
+            </form>
+        </div>
+    </div>
+
+    <div class="container">
+
+
+
+        <div class="section">
+            <h2>Зашифрованный голос</h2>
+            <div class="merkle-root">
+                <div class="label">Значение зашифрованного голоса с сервера:</div>
+                <div class="value">{{.tracking_value}}</div>
+            </div>
+            <div class="merkle-root from-user">
+                <div class="label">Значение зашифрованного голоса с устройства пользователя:</div>
+                <div class="value"></div>
+            </div>
+            <div class="merkle-root hashed">
+                <div class="label">Преобразованный зашифрованный голос:</div>
+                <div class="value"></div>
+            </div>
+
+        </div>
+
+
+
+
+        <div class="section">
+            <h2>Объяснение</h2>
+            <div class="merkle-root">
+                <div class="label">Предоставлено доказательство включения зашифрованного голоса в реестр активных
+                    бюллетеней</div>
+                <div class="value">Счетчик предоставляет набор Хешей, система вычисляет итоговое значение корня дерева
+                    Хешей на основе вашего голоса, предоставляя доказательство включения в реестр</div>
+            </div>
+        </div>
+
+
+
+        <div class="merkle-container" id="merkleContainer">
+            <!-- Здесь будет отображаться путь Меркла -->
+        </div>
+
+        <div class="section">
+            <h2>Корень Меркла</h2>
+            <div class="merkle-root">
+                <div class="label">Значение корня из базы данных сервера:</div>
+                <div class="value">{{.found_root_hash}}</div>
+                <div class="timestamp">Создан: {{.created_at}}</div>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>Данные не совпали?</h2>
+            <div class="merkle-root">
+                <div class="label">Если данные не совпадают, пожалуйста, обратитесь к администратору</div>
+                <div class="value">Администратор проверит ваш голос и предоставит доказательство включения в реестр
+                </div>
+                <form action="/user/contact" method="POST">
+                    <button type="submit" class="btn btn-danger">Связаться с администратором</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+    <script>
+        function calculateSHA512(left, right) {
+            const combined = left + right;
+            return CryptoJS.SHA512(combined).toString();
+        }
+
+        function displayMerklePath(merklePathData) {
+            const container = document.getElementById('merkleContainer');
+            container.innerHTML = '';
+
+            let currentHash = merklePathData[0].Hash;
+
+            merklePathData.forEach((node, index) => {
+                const levelDiv = document.createElement('div');
+                levelDiv.className = 'level';
+
+                const hashCombination = document.createElement('div');
+                hashCombination.className = 'hash-combination';
+
+                // Текущий узел
+                const currentNodeDiv = document.createElement('div');
+                currentNodeDiv.className = 'node current-node';
+
+                const currentDirectionDiv = document.createElement('div');
+                currentDirectionDiv.className = 'direction';
+                currentDirectionDiv.textContent = 'Текущий хеш';
+
+                const currentHashDiv = document.createElement('div');
+                currentHashDiv.className = 'hash';
+                currentHashDiv.textContent = currentHash.substring(0, 20) + '...';
+
+                currentNodeDiv.appendChild(currentDirectionDiv);
+                currentNodeDiv.appendChild(currentHashDiv);
+
+                // Добавляем узлы в правильном порядке
+                if (index < merklePathData.length - 1) {
+                    if (!node.IsRight) {
+                        hashCombination.appendChild(currentNodeDiv);
+
+                        const hashContainer = document.createElement('div');
+                        hashContainer.className = 'hash-container';
+
+                        const arrow = document.createElement('div');
+                        arrow.className = 'hash-arrow';
+                        arrow.textContent = '→';
+
+                        const popupResult = document.createElement('div');
+                        popupResult.className = 'popup-result';
+                        const nextHash = calculateSHA512(currentHash, merklePathData[index + 1].Hash);
+                        popupResult.innerHTML = `
+                            <div class="popup-title">Детали хеширования</div>
+                            <div class="hash-details">Левый хеш: ${currentHash}</div>
+                            <div class="hash-details">Правый хеш: ${merklePathData[index + 1].Hash}</div>
+                            <div class="hash-details">Порядок объединения: ${currentHash} + ${merklePathData[index + 1].Hash}</div>
+                            <div class="hash-details">Результат SHA-512:</div>
+                            <div class="full-hash">${nextHash}</div>
+                        `;
+
+                        hashContainer.appendChild(arrow);
+                        hashContainer.appendChild(popupResult);
+                        hashCombination.appendChild(hashContainer);
+
+                        const siblingNode = document.createElement('div');
+                        siblingNode.className = 'node sibling-node';
+                        siblingNode.innerHTML = `
+                            <div class="direction">Правый сосед</div>
+                            <div class="hash">${merklePathData[index + 1].Hash.substring(0, 20)}...</div>
+                        `;
+                        hashCombination.appendChild(siblingNode);
+
+                        currentHash = nextHash;
+                    } else {
+                        const siblingNode = document.createElement('div');
+                        siblingNode.className = 'node sibling-node';
+                        siblingNode.innerHTML = `
+                            <div class="direction">Левый сосед</div>
+                            <div class="hash">${merklePathData[index + 1].Hash.substring(0, 20)}...</div>
+                        `;
+                        hashCombination.appendChild(siblingNode);
+
+                        const hashContainer = document.createElement('div');
+                        hashContainer.className = 'hash-container';
+
+                        const arrow = document.createElement('div');
+                        arrow.className = 'hash-arrow';
+                        arrow.textContent = '→';
+
+                        const popupResult = document.createElement('div');
+                        popupResult.className = 'popup-result';
+                        const nextHash = calculateSHA512(merklePathData[index + 1].Hash, currentHash);
+                        popupResult.innerHTML = `
+                            <div class="popup-title">Детали хеширования</div>
+                            <div class="hash-details">Левый хеш: ${merklePathData[index + 1].Hash}</div>
+                            <div class="hash-details">Правый хеш: ${currentHash}</div>
+                            <div class="hash-details">Порядок объединения: ${merklePathData[index + 1].Hash} + ${currentHash}</div>
+                            <div class="hash-details">Результат SHA-512:</div>
+                            <div class="full-hash">${nextHash}</div>
+                        `;
+
+                        hashContainer.appendChild(arrow);
+                        hashContainer.appendChild(popupResult);
+                        hashCombination.appendChild(hashContainer);
+
+                        hashCombination.appendChild(currentNodeDiv);
+
+                        currentHash = nextHash;
+                    }
+                } else {
+                    // Последний узел (корневой хеш)
+                    const rootNode = document.createElement('div');
+                    rootNode.className = 'node root-node';
+                    rootNode.innerHTML = `
+                        <div class="direction">Корневой хеш</div>
+                        <div class="hash">${currentHash.substring(0, 20)}...</div>
+                    `;
+
+                    const hashContainer = document.createElement('div');
+                    hashContainer.className = 'hash-container';
+                    hashContainer.appendChild(rootNode);
+
+                    const popupResult = document.createElement('div');
+                    popupResult.className = 'popup-result';
+                    popupResult.innerHTML = `
+                        <div class="popup-title">Корневой хеш дерева Меркла</div>
+                        <div class="full-hash">${currentHash}</div>
+                    `;
+
+                    hashContainer.appendChild(popupResult);
+                    hashCombination.appendChild(hashContainer);
+                }
+
+                levelDiv.appendChild(hashCombination);
+
+                if (index < merklePathData.length - 1) {
+                    const arrow = document.createElement('div');
+                    arrow.className = 'arrow';
+                    arrow.textContent = '↓';
+                    levelDiv.appendChild(arrow);
+                }
+
+                container.appendChild(levelDiv);
+            });
+        }
+
+
+
+        const json = {{.hashes }};
+
+        const trackingValueHash = "{{.tracking_value_hash}}";
+
+        const encryptedValue = {{.tracking_value }};
+        console.log(encryptedValue);
+
+        json.push({ Hash: trackingValueHash, IsRight: true });
+
+
+        console.log(json);
+
+
+
+
+
+        const hashedHash = document.querySelector('.hashed .value').textContent = CryptoJS.SHA512(encryptedValue).toString();
+
+
+
+
+        // const testData = JSON.parse(jsonString);
+
+        // Пример использования:
+        // const json = [
+        //     { hash: "abc123", isRight: false },
+        //     { hash: "def456", isRight: true },
+        //     { hash: "ghi789", isRight: false },
+        //     { hash: "jkl012", isRight: true },
+        //     { hash: "mno345", isRight: false },
+        //     { hash: "pqr678", isRight: true },
+        //     { hash: "stu901", isRight: false },
+        //     { hash: "vwx234", isRight: true },
+        //     { hash: "yz567", isRight: false },
+        // ];
+
+        displayMerklePath(json);
+
+
+        const votingId = "{{.voting_id}}";
+        const oldEncryptedValue = document.cookie.split('; ').find(row => row.startsWith(`oldEncryptedValue_${votingId}=`))?.split('=')[1];
+        document.querySelector('.from-user .value').textContent = oldEncryptedValue;
+
+
+
+    </script>
+</body>
+
+</html>

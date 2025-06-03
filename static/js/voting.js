@@ -1,6 +1,6 @@
 import { modPow, bigIntToBase64, base64ToBigInt, computeDigest } from './math.js';
 import { blindBallot, unblindSignature, verifySignatureWithMultiplier } from './rsa.js';
-import { generateProof, verify } from './zkp.js';
+import { generateProof } from './zkp.js';
 import { getUserData, userToNonce, getOldVotingParams } from './profile.js';
 import QRCode from "https://esm.sh/qrcode@1.5.3";
 
@@ -147,7 +147,7 @@ export async function initializeVoting(params) {
 
         const selectedIndex = parseInt(selectedOption.value);
         const messageToEncrypt = EV_STATE.vote_variants[selectedIndex];
-        EV_STATE.zkp_proof = await generateProof(pailierPublicKey.n, EV_STATE.vote_variants, messageToEncrypt);
+        EV_STATE.zkp_proof = await generateProof(pailierPublicKey.n, EV_STATE.vote_variants, messageToEncrypt, challenge_bits);
         console.log("EV_STATE.zkp_proof: ", EV_STATE.zkp_proof);
 
         return true
@@ -216,7 +216,7 @@ export async function initializeVoting(params) {
                 BigInt(rsaSignPublicKey.n)
             );
 
-            const isVerified = verifySignatureWithMultiplier(EV_STATE.label, unblindedSignature, rsaSignPublicKey, EV_STATE.EV_STATIC_PARAMS.re_voting_multiplier);
+            const isVerified = await verifySignatureWithMultiplier(EV_STATE.label, unblindedSignature, rsaSignPublicKey, EV_STATE.EV_STATIC_PARAMS.re_voting_multiplier);
 
 
             if (!isVerified) {
@@ -250,7 +250,7 @@ export async function initializeVoting(params) {
 
         const { rsaSignPublicKey } = EV_STATE.EV_STATIC_PARAMS;
 
-        const isVerified = verifySignatureWithMultiplier(EV_STATE.label, EV_STATE.label_sig, rsaSignPublicKey, EV_STATE.EV_STATIC_PARAMS.re_voting_multiplier);
+        const isVerified = await verifySignatureWithMultiplier(EV_STATE.label, EV_STATE.label_sig, rsaSignPublicKey, EV_STATE.EV_STATIC_PARAMS.re_voting_multiplier);
         if (!isVerified) {
             const errorMessage = document.querySelector('#step3 .error-message');
             errorMessage.textContent = "Ошибка верификации подписи регистратора на клиенте";
@@ -333,7 +333,7 @@ export async function initializeVoting(params) {
             document.cookie = `oldLabel_${EV_STATE.EV_STATIC_PARAMS.voting_id}=${labelBase64}; path=/; max-age=86400; samesite=strict`;
             document.cookie = `oldNonce_${EV_STATE.EV_STATIC_PARAMS.voting_id}=${nonceBase64}; path=/; max-age=86400; samesite=strict`;
             document.cookie = `oldLink_${EV_STATE.EV_STATIC_PARAMS.voting_id}=${link}; path=/; max-age=86400; samesite=strict`;
-
+            document.cookie = `oldEncryptedValue_${EV_STATE.EV_STATIC_PARAMS.voting_id}=${bigIntToBase64(EV_STATE.zkp_proof.ciphertext)}; path=/; max-age=86400; samesite=strict`;
 
             return true
         } catch (error) {
