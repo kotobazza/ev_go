@@ -1,0 +1,209 @@
+#votingProcess {
+    margin-top: 30px;
+    padding-top: 20px;
+    border-top: 1px solid #e0e0e0;
+}
+
+#votingProcess h2 {
+    color: #333;
+    font-size: 1.2em;
+    margin-bottom: 20px;
+}
+
+.voting-steps {
+    margin: 20px 0;
+}
+
+.step {
+    display: flex;
+    align-items: flex-start;
+    margin-bottom: 15px;
+    padding: 12px;
+    border-radius: 6px;
+    background: #f8f9fa;
+    transition: all 0.3s ease;
+    border: 1px solid transparent;
+}
+
+.step.active {
+    background: #e3f2fd;
+    border-color: #90caf9;
+}
+
+.step.completed {
+    background: #f1f8e9;
+    border-color: #a5d6a7;
+}
+
+.step.error {
+    background: #ffcdd2;
+    border-color: #ef5350;
+}
+
+.step-number {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: #90a4ae;
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-right: 12px;
+    font-weight: bold;
+    font-size: 0.9em;
+}
+
+.step.active .step-number {
+    background: #1976d2;
+}
+
+.step.completed .step-number {
+    background: #43a047;
+}
+
+.step-content {
+    flex: 1;
+}
+
+.step-content h3 {
+    margin: 0 0 8px 0;
+    font-size: 1em;
+    color: #37474f;
+}
+
+.step-status {
+    font-size: 0.9em;
+    color: #546e7a;
+}
+
+.step-details {
+    margin-top: 8px;
+    padding: 8px;
+    background: rgba(255, 255, 255, 0.7);
+    border-radius: 4px;
+    font-size: 0.9em;
+}
+
+.voting-result {
+    margin-top: 25px;
+    padding: 20px;
+    background: #f1f8e9;
+    border-radius: 6px;
+    border: 1px solid #a5d6a7;
+    text-align: center;
+}
+
+.voting-result h3 {
+    color: #2e7d32;
+    margin-bottom: 15px;
+}
+
+#qrCode {
+    margin: 15px auto;
+    max-width: 180px;
+    padding: 10px;
+    background: white;
+    border-radius: 4px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.label-preview {
+    display: block;
+    padding: 8px;
+    background: rgba(255, 255, 255, 0.7);
+    border-radius: 4px;
+    font-family: monospace;
+    font-size: 0.85em;
+    word-break: break-all;
+    margin: 10px 0;
+    color: #37474f;
+}
+
+.signature-preview,
+.counter-response {
+    display: block;
+    padding: 4px 8px;
+    background: rgba(255, 255, 255, 0.7);
+    border-radius: 4px;
+    font-family: monospace;
+    font-size: 0.85em;
+    margin: 5px 0;
+    color: #37474f;
+}
+
+/* Анимация появления процесса */
+#votingProcess {
+    opacity: 0;
+    transform: translateY(-10px);
+    transition: all 0.3s ease;
+}
+
+#votingProcess.visible {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.previous-vote {
+    margin: 20px 0;
+    padding: 15px;
+    background: #f8f9fa;
+    border-radius: 8px;
+    border: 1px solid #e0e0e0;
+}
+
+.previous-vote h3 {
+    color: #333;
+    font-size: 1.2em;
+    margin-bottom: 15px;
+}
+
+.previous-vote-item {
+    padding: 15px;
+    background: white;
+    border-radius: 6px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    max-width: 300px;
+    margin: 0 auto;
+    text-align: center;
+}
+
+.qr-container {
+    text-align: center;
+    margin-bottom: 10px;
+}
+
+.qr-container a {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    text-decoration: none;
+}
+
+.previous-vote-qr {
+    max-width: 150px;
+    height: auto;
+    display: block;
+    margin: 0 auto;
+}
+
+.vote-details {
+    text-align: center;
+}
+
+.vote-details .label-preview {
+    display: block;
+    font-size: 0.8em;
+    margin: 8px 0;
+    word-break: break-all;
+    background: #f8f9fa;
+    padding: 8px;
+    border-radius: 4px;
+}
+
+.vote-timestamp {
+    display: block;
+    font-size: 0.9em;
+    color: #666;
+    margin-top: 5px;
+}

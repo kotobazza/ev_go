@@ -140,7 +140,7 @@ func (mt *MerkleTree) GetProof(leafHash string) []MerklieTreePublicNode {
 
 func CalculateRootFromProof(proof []MerklieTreePublicNode, trueHash string) (string, error) {
 	if len(proof) == 0 {
-		return "", fmt.Errorf("empty proof")
+		return "", nil
 	}
 
 	currentHash := trueHash

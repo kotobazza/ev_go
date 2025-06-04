@@ -863,7 +863,15 @@ func TrackVoting(w http.ResponseWriter, r *http.Request, votingID, trackingValue
 
 	if !rows.Next() {
 		log.Error().Msg("Merklie root not found")
-		http.Error(w, "Merklie root not found", http.StatusNotFound)
+		render.RenderTemplate(w, "tracking", map[string]interface{}{
+			"voting_id":           votingID,
+			"tracking_value_hash": "",
+			"found_root_hash":     "",
+			"hashes":              "[]",
+			"created_at":          "",
+			"tracking_value":      "",
+			"root_found":          false,
+		})
 		return
 	}
 
@@ -931,11 +939,32 @@ func TrackVoting(w http.ResponseWriter, r *http.Request, votingID, trackingValue
 		return
 	}
 
+	if calculatedRoot == "" {
+		calculatedRoot = merklie.Hash(trueValue)
+	}
+
 	log.Info().Msg("Calculated root: " + calculatedRoot)
 
 	if calculatedRoot != merklieRoot {
 		log.Error().Msg("Calculated root does not match merklie root")
 		return
+	}
+
+	if len(proof) != 0 {
+		proof2 := []merklie.MerklieTreePublicNode{}
+		if proof[0].IsRight {
+			proof2 = append(proof2, merklie.MerklieTreePublicNode{
+				Hash:    merklie.Hash(trueValue),
+				IsRight: false,
+			})
+		} else {
+			proof2 = append(proof2, merklie.MerklieTreePublicNode{
+				Hash:    merklie.Hash(trueValue),
+				IsRight: true,
+			})
+		}
+
+		proof = append(proof2, proof...)
 	}
 
 	jsonedProof, err := json.Marshal(proof)
@@ -953,6 +982,7 @@ func TrackVoting(w http.ResponseWriter, r *http.Request, votingID, trackingValue
 		"hashes":              template.JS(string(jsonedProof)),
 		"created_at":          merklieRootCreatedAt.Format(time.RFC3339),
 		"tracking_value":      trueValue,
+		"root_found":          true,
 	})
 
 }

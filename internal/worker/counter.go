@@ -51,6 +51,21 @@ func ReloadResults() {
 
 	// Для каждого голосования в конфиге проверяем наличие голосов и строим дерево
 	for votingID := range config.CryptoParams {
+
+		rows, err := db.Query(ctx, "SELECT id FROM votings WHERE id = $1 AND state=1", votingID)
+		if err != nil {
+			log.Error().Err(err).Msg("Error reloading results")
+		}
+
+		defer rows.Close()
+
+		if !rows.Next() {
+			log.Info().
+				Str("voting_id", votingID).
+				Msg("Voting is not active")
+			continue
+		}
+
 		votes, hasVotes := votesByVotingID[votingID]
 		if !hasVotes {
 			log.Info().
