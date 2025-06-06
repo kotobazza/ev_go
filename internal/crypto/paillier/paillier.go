@@ -7,6 +7,8 @@ import (
 	"ev/internal/crypto/bigint"
 	"strconv"
 	"strings"
+
+	"github.com/rs/zerolog/log"
 )
 
 // L(x, n) = (x - 1) / n
@@ -118,4 +120,16 @@ func SplitAndConvert(binaryString string, chunkSize int) ([]int64, error) {
 	}
 
 	return numbers, nil
+}
+
+func CreateValueVerify(C *bigint.BigInt, lmbd *bigint.BigInt, n *bigint.BigInt) *bigint.BigInt {
+	N_inv, err := n.ModInverse(lmbd)
+	if err != nil {
+		log.Error().Err(err).Msg("ModInverse error")
+		return nil
+	}
+
+	R := C.Mod(n)
+	r_prime := R.ModExp(N_inv, n)
+	return r_prime
 }

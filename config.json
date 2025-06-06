@@ -5,8 +5,8 @@
         "tls": {
             "http_port": 8081,
             "enabled": false,
-            "cert_file": "certs/server.crt",
-            "key_file": "certs/server.key"
+            "cert_file": "certs/cert.pem",
+            "key_file": "certs/key.pem"
         }
     },
     "idp_database": {

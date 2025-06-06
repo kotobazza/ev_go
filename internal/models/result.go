@@ -7,5 +7,6 @@ type Result struct {
 	VotingID      int
 	MerklieRootID int
 	ResultedCount string
+	ResultProof   string
 	CreatedAt     time.Time
 }

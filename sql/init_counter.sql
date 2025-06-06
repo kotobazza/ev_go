@@ -43,7 +43,9 @@ CREATE TABLE IF NOT EXISTS results(
     voting_id INT NOT NULL,
     corresponds_to_merklie_root INT NOT NULL,
     crypted_result TEXT NOT NULL,
+    unencrypted_result TEXT NOT NULL,
     resulted_count TEXT NOT NULL,
+    result_proof TEXT NOT NULL,
     created_at TIMESTAMP NOT NULL,
     FOREIGN KEY (voting_id) REFERENCES votings(id),
     FOREIGN KEY (corresponds_to_merklie_root) REFERENCES merklie_roots(id)

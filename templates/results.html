@@ -45,6 +45,9 @@
                 <div class="value">{{.Result.CryptedResult}}</div>
                 <div class="label">Создан:</div>
                 <div class="value">{{.Result.CreatedAt}}</div>
+                <div class="label">Доказательство корректности:</div>
+                <div class="value">{{.Result.ResultProof}}</div>
+                <div id="result-proof"></div>
             </div>
         </div>
         {{end}}
@@ -52,7 +55,7 @@
 
 
         <div class="section">
-            <h2>Корень Меркла</h2>
+            <h2>Корень дерева хешей</h2>
             <div class="merkle-root">
                 <div class="label">Значение корня:</div>
                 <div class="value">{{.MerklieRoot.RootValue}}</div>
@@ -76,6 +79,27 @@
             {{end}}
         </div>
 
+
+        <script type="module" src="/static/js/verifyable_sum.js"></script>
+        <script type="module" src="/static/js/math.js"></script>
+
+        <script type="module">
+            import { verifyValue, compute_m_from_proof } from '/static/js/verifyable_sum.js';
+            import { modPow, modInverse, base64ToBigInt } from '/static/js/math.js';
+
+            const C = base64ToBigInt("{{.Result.CryptedResult}}");
+            const r_prime = base64ToBigInt("{{.Result.ResultProof}}");
+            const n = base64ToBigInt("{{.PaillierN}}");
+            const m = base64ToBigInt("{{.Result.UnencryptedResult}}")
+
+            console.log(C, r_prime, n, m);
+
+            if (verifyValue(C, r_prime, n) == true) {
+                document.getElementById("result-proof").innerHTML = "✅ Доказательство корректности подтверждено";
+            } else {
+                document.getElementById("result-proof").innerHTML = "❌ Доказательство корректности не подтверждено";
+            }
+        </script>
 
 </body>
 

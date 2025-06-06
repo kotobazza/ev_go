@@ -450,15 +450,18 @@ func SubmitVote(w http.ResponseWriter, r *http.Request) {
 type ResultsPageData struct {
 	Voting *models.Voting
 	Result struct {
-		ID            int
-		VotingID      int
-		MerklieRootID int
-		ResultedCount map[string]int64
-		CryptedResult string
-		CreatedAt     time.Time
+		ID                int
+		VotingID          int
+		MerklieRootID     int
+		ResultedCount     map[string]int64
+		CryptedResult     string
+		UnencryptedResult string
+		ResultProof       string
+		CreatedAt         time.Time
 	}
 	MerklieRoot          models.MerklieRoot
 	PublicEncryptedVotes []models.PublicEncryptedVote
+	PaillierN            string
 }
 
 func ShowResultsPage(w http.ResponseWriter, r *http.Request, votingID string) {
@@ -515,12 +518,14 @@ func ShowResultsPage(w http.ResponseWriter, r *http.Request, votingID string) {
 	defer rows.Close()
 
 	var result = struct {
-		ID            int
-		VotingID      int
-		MerklieRootID int
-		ResultedCount map[string]int64
-		CryptedResult string
-		CreatedAt     time.Time
+		ID                int
+		VotingID          int
+		MerklieRootID     int
+		ResultedCount     map[string]int64
+		CryptedResult     string
+		UnencryptedResult string
+		ResultProof       string
+		CreatedAt         time.Time
 	}{
 		ResultedCount: make(map[string]int64),
 	}
@@ -530,7 +535,7 @@ func ShowResultsPage(w http.ResponseWriter, r *http.Request, votingID string) {
 	var jsonedResultedCount string
 
 	if rows.Next() {
-		err = rows.Scan(&result.ID, &result.VotingID, &result.MerklieRootID, &result.CryptedResult, &jsonedResultedCount, &result.CreatedAt)
+		err = rows.Scan(&result.ID, &result.VotingID, &result.MerklieRootID, &result.CryptedResult, &result.UnencryptedResult, &jsonedResultedCount, &result.ResultProof, &result.CreatedAt)
 		if err != nil {
 			log.Error().Err(err).Msg("Error scanning results")
 		}
@@ -547,6 +552,9 @@ func ShowResultsPage(w http.ResponseWriter, r *http.Request, votingID string) {
 		log.Info().Msg("integeredResult: " + fmt.Sprintf("%v", integeredResult))
 	}
 	rows.Close()
+
+	log.Info().Msg("result.CryptedResult: " + result.CryptedResult)
+	log.Info().Msg("result.ResultProof: " + result.ResultProof)
 
 	for _, option := range votingOptions {
 
@@ -603,6 +611,7 @@ func ShowResultsPage(w http.ResponseWriter, r *http.Request, votingID string) {
 		Result:               result,
 		MerklieRoot:          merklieRoot,
 		PublicEncryptedVotes: publicEncryptedVotes,
+		PaillierN:            config.CryptoParams[votingID].Paillier.N.ToBase64(),
 	})
 
 }
@@ -684,6 +693,8 @@ func CalculateVoting(w http.ResponseWriter, r *http.Request, votingID string) {
 	}
 
 	binaryString := decryptedSum.ToBinaryString()
+	base64result := decryptedSum.ToBase64()
+	base64sum := sum.ToBase64()
 
 	log.Info().Msg("Decrypted sum: " + binaryString)
 
@@ -779,11 +790,18 @@ func CalculateVoting(w http.ResponseWriter, r *http.Request, votingID string) {
 		return
 	}
 
-	_, err = tx.Exec(ctx, "INSERT INTO results (voting_id, corresponds_to_merklie_root, crypted_result, resulted_count, created_at) VALUES ($1, $2, $3, $4, $5)",
+	proof := paillier.CreateValueVerify(sum, config.CryptoParams[votingID].Paillier.Lambda, config.CryptoParams[votingID].Paillier.N)
+	proof_string := proof.ToBase64()
+
+	log.Info().Msg("proof_string: " + proof_string)
+
+	_, err = tx.Exec(ctx, "INSERT INTO results (voting_id, corresponds_to_merklie_root, crypted_result, unencrypted_result, resulted_count, result_proof, created_at) VALUES ($1, $2, $3, $4, $5, $6, $7)",
 		votingID,
 		insertedID,
-		sum.ToBase64(),
+		base64sum,
+		base64result,
 		string(jsonedResult),
+		proof_string,
 		currentTime,
 	)
 	if err != nil {
@@ -983,6 +1001,7 @@ func TrackVoting(w http.ResponseWriter, r *http.Request, votingID, trackingValue
 		"created_at":          merklieRootCreatedAt.Format(time.RFC3339),
 		"tracking_value":      trueValue,
 		"root_found":          true,
+		"paillier_n":          config.CryptoParams[votingID].Paillier.N.ToBase64(),
 	})
 
 }

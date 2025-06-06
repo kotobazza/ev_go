@@ -76,7 +76,7 @@ export async function initializeVoting(params) {
         document.querySelector('.button.processVotingButton').disabled = true;
 
         updateStep('step1', 'Шифрование вашего голоса...', 1);
-        await delay(1000);
+        //await delay(1000);
 
         const isPrepared = await prepareVote();
         if (!isPrepared) {
@@ -87,7 +87,7 @@ export async function initializeVoting(params) {
         updateStep('step1', 'Шифрование вашего голоса завершено!', 2);
 
         updateStep('step2', 'Запрос подписи у Регистратора...', 1);
-        await delay(1000);
+        //await delay(1000);
 
 
         const isSigned = await signBallotByRegistrator();
@@ -99,7 +99,7 @@ export async function initializeVoting(params) {
         updateStep('step2', 'Подпись получена!', 2);
 
         updateStep('step3', 'Отправка бюллетеня Счетчику...', 1);
-        await delay(1000);
+        //await delay(1000);
 
         const isSubmitted = await submitVote();
         if (!isSubmitted) {

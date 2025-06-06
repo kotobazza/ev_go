@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"strings"
 )
 
 type BigInt struct {
@@ -263,4 +264,12 @@ func JoinFromChunks(chunks []*BigInt, chunkSize uint) *BigInt {
 		result = result.Add(shifted)
 	}
 	return result
+}
+
+func AddBase64Padding(b64 string) string {
+	padding := len(b64) % 4
+	if padding > 0 {
+		b64 += strings.Repeat("=", 4-padding)
+	}
+	return b64
 }
