@@ -132,9 +132,9 @@ func ShowVotingPage(w http.ResponseWriter, r *http.Request, votingID string) {
 		Voting:  voting,
 		Options: voting.Options,
 		Crypto: VotingPageCryptParams{
-			RsaN:               cryptoParams.RSA.N.ToBase64(),
-			RsaE:               cryptoParams.RSA.E.ToBase64(),
-			PaillierN:          cryptoParams.Paillier.N.ToBase64(),
+			RsaN:               bigint.AddBase64Padding(cryptoParams.RSA.N.ToBase64()),
+			RsaE:               bigint.AddBase64Padding(cryptoParams.RSA.E.ToBase64()),
+			PaillierN:          bigint.AddBase64Padding(cryptoParams.Paillier.N.ToBase64()),
 			ChallengeBits:      cryptoParams.ChallengeBits,
 			Base:               cryptoParams.Base,
 			ReVotingMultiplier: cryptoParams.ReVotingMultiplier,
@@ -339,7 +339,7 @@ func RegisterVote(w http.ResponseWriter, r *http.Request) {
 		log.Info().Msg("Temp ID added to database")
 	}
 
-	blindedBallot, err := bigint.NewBigIntFromBase64(data.BlindedBallot)
+	blindedBallot, err := bigint.NewBigIntFromBase64(bigint.AddBase64Padding(data.BlindedBallot))
 
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
@@ -373,7 +373,7 @@ func RegisterVote(w http.ResponseWriter, r *http.Request) {
 	}
 
 	err = json.NewEncoder(w).Encode(ResponseData{
-		Signature: signature.ToBase64(),
+		Signature: bigint.AddBase64Padding(signature.ToBase64()),
 		Success:   true,
 		Message:   "Бюллетень зарегистрирован успешно",
 	})

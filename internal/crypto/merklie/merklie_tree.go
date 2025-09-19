@@ -93,7 +93,7 @@ type MerklieTreePublicNode struct {
 	IsRight bool
 }
 
-func (mt *MerkleTree) GetProof(leafHash string) []MerklieTreePublicNode {
+func (mt *MerkleTree) GetProof(leafHash string) ([]MerklieTreePublicNode, bool) {
 	var proof []MerklieTreePublicNode
 
 	var findPath func(*Node, *Node) ([]*Node, bool)
@@ -121,7 +121,7 @@ func (mt *MerkleTree) GetProof(leafHash string) []MerklieTreePublicNode {
 		}
 	}
 	if leaf == nil {
-		return proof
+		return proof, false
 	}
 
 	path, _ := findPath(mt.root, leaf)
@@ -135,7 +135,7 @@ func (mt *MerkleTree) GetProof(leafHash string) []MerklieTreePublicNode {
 			proof = append(proof, MerklieTreePublicNode{Hash: parent.Left.HashHex, IsRight: false})
 		}
 	}
-	return proof
+	return proof, true
 }
 
 func CalculateRootFromProof(proof []MerklieTreePublicNode, trueHash string) (string, error) {

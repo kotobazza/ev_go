@@ -80,7 +80,7 @@ func SubmitVote(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ballot, err := bigint.NewBigIntFromBase64(data.EncryptedBallot)
+	ballot, err := bigint.NewBigIntFromBase64(bigint.AddBase64Padding(data.EncryptedBallot))
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		err = json.NewEncoder(w).Encode(BallotResponseData{
@@ -143,7 +143,7 @@ func SubmitVote(w http.ResponseWriter, r *http.Request) {
 		log.Error().Msg("Voting is not active or not started")
 		return
 	}
-	label, err := bigint.NewBigIntFromBase64(data.Label)
+	label, err := bigint.NewBigIntFromBase64(bigint.AddBase64Padding(data.Label))
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		err = json.NewEncoder(w).Encode(BallotResponseData{
@@ -161,7 +161,7 @@ func SubmitVote(w http.ResponseWriter, r *http.Request) {
 
 	log.Info().Msg("Blind signature verification started")
 
-	signature, err := bigint.NewBigIntFromBase64(data.Signature)
+	signature, err := bigint.NewBigIntFromBase64(bigint.AddBase64Padding(data.Signature))
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		err = json.NewEncoder(w).Encode(BallotResponseData{
@@ -211,7 +211,7 @@ func SubmitVote(w http.ResponseWriter, r *http.Request) {
 				log.Error().Msg("Error parsing old label and nonce")
 				return
 			}
-			oldLabel, err = bigint.NewBigIntFromBase64(addPadding(data.OldLabel))
+			oldLabel, err = bigint.NewBigIntFromBase64(bigint.AddBase64Padding(data.OldLabel))
 			if err != nil {
 				log.Error().Err(err).Msg("Error parsing old label")
 				log.Error().Msg("data.OldLabel: " + data.OldLabel)
@@ -230,7 +230,7 @@ func SubmitVote(w http.ResponseWriter, r *http.Request) {
 				log.Error().Msg("Error parsing old label")
 				return
 			}
-			oldNonce, err := bigint.NewBigIntFromBase64(data.OldNonce)
+			oldNonce, err := bigint.NewBigIntFromBase64(bigint.AddBase64Padding(data.OldNonce))
 			if err != nil {
 				w.WriteHeader(http.StatusBadRequest)
 				err = json.NewEncoder(w).Encode(BallotResponseData{
@@ -286,7 +286,7 @@ func SubmitVote(w http.ResponseWriter, r *http.Request) {
 				w.WriteHeader(http.StatusInternalServerError)
 				log.Error().Err(err).Msg("Error sending response")
 			}
-			encryptedVoteBigint, err := bigint.NewBigIntFromBase64(encryptedVote)
+			encryptedVoteBigint, err := bigint.NewBigIntFromBase64(bigint.AddBase64Padding(encryptedVote))
 			if err != nil {
 				w.WriteHeader(http.StatusInternalServerError)
 				log.Error().Err(err).Msg("Error sending response")
@@ -320,7 +320,7 @@ func SubmitVote(w http.ResponseWriter, r *http.Request) {
 	zkpProofAVec := make([]*bigint.BigInt, len(data.ZKPProofAVec))
 
 	for i, e := range data.ZKPProofEVec {
-		zkpProofEVec[i], err = bigint.NewBigIntFromBase64(e)
+		zkpProofEVec[i], err = bigint.NewBigIntFromBase64(bigint.AddBase64Padding(e))
 		if err != nil {
 			w.WriteHeader(http.StatusBadRequest)
 			err = json.NewEncoder(w).Encode(BallotResponseData{
@@ -337,7 +337,7 @@ func SubmitVote(w http.ResponseWriter, r *http.Request) {
 	}
 
 	for i, z := range data.ZKPProofZVec {
-		zkpProofZVec[i], err = bigint.NewBigIntFromBase64(z)
+		zkpProofZVec[i], err = bigint.NewBigIntFromBase64(bigint.AddBase64Padding(z))
 		if err != nil {
 			w.WriteHeader(http.StatusBadRequest)
 			err = json.NewEncoder(w).Encode(BallotResponseData{
@@ -354,7 +354,7 @@ func SubmitVote(w http.ResponseWriter, r *http.Request) {
 	}
 
 	for i, a := range data.ZKPProofAVec {
-		zkpProofAVec[i], err = bigint.NewBigIntFromBase64(a)
+		zkpProofAVec[i], err = bigint.NewBigIntFromBase64(bigint.AddBase64Padding(a))
 		if err != nil {
 			w.WriteHeader(http.StatusBadRequest)
 			err = json.NewEncoder(w).Encode(BallotResponseData{
@@ -413,8 +413,8 @@ func SubmitVote(w http.ResponseWriter, r *http.Request) {
 	_, err = db.Exec(ctx,
 		"INSERT INTO encrypted_votes (voting_id, label, encrypted_vote, created_at) VALUES ($1, $2, $3, $4)",
 		data.VotingID,
-		label.ToBase64(),
-		ballot.ToBase64(),
+		bigint.AddBase64Padding(label.ToBase64()),
+		bigint.AddBase64Padding(ballot.ToBase64()),
 		time.Now(),
 	)
 	if err != nil {
@@ -611,7 +611,7 @@ func ShowResultsPage(w http.ResponseWriter, r *http.Request, votingID string) {
 		Result:               result,
 		MerklieRoot:          merklieRoot,
 		PublicEncryptedVotes: publicEncryptedVotes,
-		PaillierN:            config.CryptoParams[votingID].Paillier.N.ToBase64(),
+		PaillierN:            bigint.AddBase64Padding(config.CryptoParams[votingID].Paillier.N.ToBase64()),
 	})
 
 }
@@ -676,7 +676,7 @@ func CalculateVoting(w http.ResponseWriter, r *http.Request, votingID string) {
 	cryptoValues := []*bigint.BigInt{}
 
 	for _, vote := range encryptedVotes {
-		encryptedVoteBigint, err := bigint.NewBigIntFromBase64(vote.EncryptedVote)
+		encryptedVoteBigint, err := bigint.NewBigIntFromBase64(bigint.AddBase64Padding(vote.EncryptedVote))
 		if err != nil {
 			log.Error().Err(err).Msg("Error parsing encrypted vote")
 			return
@@ -693,8 +693,8 @@ func CalculateVoting(w http.ResponseWriter, r *http.Request, votingID string) {
 	}
 
 	binaryString := decryptedSum.ToBinaryString()
-	base64result := decryptedSum.ToBase64()
-	base64sum := sum.ToBase64()
+	base64result := bigint.AddBase64Padding(decryptedSum.ToBase64())
+	base64sum := bigint.AddBase64Padding(sum.ToBase64())
 
 	log.Info().Msg("Decrypted sum: " + binaryString)
 
@@ -791,7 +791,7 @@ func CalculateVoting(w http.ResponseWriter, r *http.Request, votingID string) {
 	}
 
 	proof := paillier.CreateValueVerify(sum, config.CryptoParams[votingID].Paillier.Lambda, config.CryptoParams[votingID].Paillier.N)
-	proof_string := proof.ToBase64()
+	proof_string := bigint.AddBase64Padding(proof.ToBase64())
 
 	log.Info().Msg("proof_string: " + proof_string)
 
@@ -838,6 +838,7 @@ func CalculateVoting(w http.ResponseWriter, r *http.Request, votingID string) {
 
 // TrackVoting обрабатывает запросы на отслеживание голосования
 func TrackVoting(w http.ResponseWriter, r *http.Request, votingID, trackingValue string) {
+	trackingValue = bigint.AddBase64Padding(trackingValue)
 	log := logger.GetLogger()
 	log.Info().
 		Str("voting_id", votingID).
@@ -880,7 +881,7 @@ func TrackVoting(w http.ResponseWriter, r *http.Request, votingID, trackingValue
 	defer rows.Close()
 
 	if !rows.Next() {
-		log.Error().Msg("Merklie root not found")
+		log.Error().Msg("Merklie root not found - looks like it wasn't created yet")
 		render.RenderTemplate(w, "tracking", map[string]interface{}{
 			"voting_id":           votingID,
 			"tracking_value_hash": "",
@@ -941,8 +942,22 @@ func TrackVoting(w http.ResponseWriter, r *http.Request, votingID, trackingValue
 	for _, vote := range publicEncryptedVotes {
 		merkleTree.AddLeaf(vote.EncryptedVote)
 	}
-
-	proof := merkleTree.GetProof(merklie.Hash(trueValue))
+	//means existing error
+	proof, ok := merkleTree.GetProof(merklie.Hash(trueValue))
+	if !ok {
+		log.Error().Msg("Error getting proof")
+		render.RenderTemplate(w, "tracking", map[string]interface{}{
+			"voting_id":           votingID,
+			"tracking_value_hash": merklie.Hash(trueValue),
+			"found_root_hash":     merklieRoot,
+			"hashes":              template.JS("[]"),
+			"created_at":          merklieRootCreatedAt.Format(time.RFC3339),
+			"tracking_value":      trueValue,
+			"root_found":          true,
+			"paillier_n":          bigint.AddBase64Padding(config.CryptoParams[votingID].Paillier.N.ToBase64()),
+		})
+		return
+	}
 
 	log.Info().Msg("True value hash:  " + merklie.Hash(trueValue))
 
@@ -968,22 +983,20 @@ func TrackVoting(w http.ResponseWriter, r *http.Request, votingID, trackingValue
 		return
 	}
 
-	if len(proof) != 0 {
-		proof2 := []merklie.MerklieTreePublicNode{}
-		if proof[0].IsRight {
-			proof2 = append(proof2, merklie.MerklieTreePublicNode{
-				Hash:    merklie.Hash(trueValue),
-				IsRight: false,
-			})
-		} else {
-			proof2 = append(proof2, merklie.MerklieTreePublicNode{
-				Hash:    merklie.Hash(trueValue),
-				IsRight: true,
-			})
-		}
-
-		proof = append(proof2, proof...)
+	proof2 := []merklie.MerklieTreePublicNode{}
+	if proof[0].IsRight {
+		proof2 = append(proof2, merklie.MerklieTreePublicNode{
+			Hash:    merklie.Hash(trueValue),
+			IsRight: false,
+		})
+	} else {
+		proof2 = append(proof2, merklie.MerklieTreePublicNode{
+			Hash:    merklie.Hash(trueValue),
+			IsRight: true,
+		})
 	}
+
+	proof = append(proof2, proof...)
 
 	jsonedProof, err := json.Marshal(proof)
 	if err != nil {
@@ -1001,7 +1014,7 @@ func TrackVoting(w http.ResponseWriter, r *http.Request, votingID, trackingValue
 		"created_at":          merklieRootCreatedAt.Format(time.RFC3339),
 		"tracking_value":      trueValue,
 		"root_found":          true,
-		"paillier_n":          config.CryptoParams[votingID].Paillier.N.ToBase64(),
+		"paillier_n":          bigint.AddBase64Padding(config.CryptoParams[votingID].Paillier.N.ToBase64()),
 	})
 
 }
